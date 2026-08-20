@@ -242,6 +242,7 @@
   var VERDICT_LABEL = {
     remplacer: 'Remplacement recommandé',
     ajouter: 'Ajout recommandé',
+    investir: 'À intégrer pour son évolution',
     entrainer: 'À garder et entraîner',
     'a-tester': 'À tester, sans garantie',
     'non-recommande': 'Non recommandé',
@@ -457,6 +458,24 @@
       '<p>Avec un seul indice, la conclusion est « à tester, mais pas objectivement ' +
         'meilleur ». Avec zéro, ou dès qu\'une condition obligatoire échoue&nbsp;: ' +
         '« pas de changement recommandé ».</p>' +
+
+      '<h4>Pokémon non évolués — la règle de l\'expérience</h4>' +
+      '<p>Un Pokémon qui n\'est pas dans l\'équipe ne gagne <strong>aucun point ' +
+        'd\'expérience</strong>, donc n\'évoluera jamais. «&nbsp;Il n\'est pas encore ' +
+        'évolué&nbsp;» ne peut donc pas servir de motif pour l\'écarter&nbsp;: c\'est au ' +
+        'contraire la raison de l\'intégrer.</p>' +
+      '<ul>' +
+        '<li>Un candidat non évolué est jugé sur sa <strong>forme finale</strong> ' +
+          '(Griknot se juge sur Carchacrok, jamais sur Carmache).</li>' +
+        '<li>Cette forme finale doit franchir exactement les mêmes conditions ' +
+          'obligatoires et le même faisceau d\'indices que n\'importe quel autre ' +
+          'candidat. Le potentiel n\'assouplit aucune règle.</li>' +
+        '<li>Si elle les franchit, la réponse est «&nbsp;intègre-le maintenant&nbsp;», ' +
+          'avec le coût annoncé&nbsp;: équipe temporairement plus faible sur cet ' +
+          'emplacement, et condition d\'évolution à remplir.</li>' +
+        '<li>Si elle ne les franchit pas, le refus porte sur la forme finale — ' +
+          'jamais sur le fait que le Pokémon soit encore une forme de base.</li>' +
+      '</ul>' +
 
       '<h4>Provenance des données</h4>' +
       '<ul>' +

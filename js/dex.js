@@ -146,7 +146,11 @@
       acc.push({
         speciesSlug: child.species.name,
         details: child.evolution_details || [],
-        depth: depth
+        depth: depth,
+        /* Forme terminale = plus rien après elle dans la chaîne. C'est elle qui
+         * représente le vrai potentiel du Pokémon : Griknot doit être jugé sur
+         * Carchacrok, pas sur Carmache. */
+        isTerminal: (child.evolves_to || []).length === 0
       });
       collectDescendants(child, acc, depth + 1);
     });
@@ -319,6 +323,7 @@
                     return forms.map(function (f) {
                       f.evolutionCondition = conditionToFrench(desc.details);
                       f.evolutionDepth = desc.depth;
+                      f.isTerminal = desc.isTerminal;
                       return f;
                     });
                   });

@@ -10,16 +10,20 @@
 <body>
 
 <header class="site-header">
-  <div class="wrap">
-    <h1>PokeStats</h1>
-    <p class="tagline">
-      Ce Pokémon que tu viens de capturer mérite-t-il vraiment une place dans ton équipe&nbsp;?
-    </p>
-    <p class="header-note">
-      Analyse conservatrice : en cas de doute ou de données insuffisantes,
-      l'outil répond « pas de changement recommandé » plutôt que de te faire
-      prendre un risque.
-    </p>
+  <div class="wrap header-inner">
+    <div class="pokeball pokeball-emblem" aria-hidden="true"></div>
+    <div class="header-text">
+      <h1>Poké<span>Stats</span></h1>
+      <p class="tagline">
+        Ce Pokémon que tu viens de capturer mérite-t-il vraiment une place dans ton équipe&nbsp;?
+      </p>
+      <p class="header-note">
+        Analyse prudente&nbsp;: en cas de doute ou de données insuffisantes, l'outil
+        répond «&nbsp;pas de changement recommandé&nbsp;» plutôt que de te faire prendre
+        un risque. Et comme un Pokémon hors équipe ne gagne aucun point d'expérience,
+        les évolutions sont évaluées sur leur <strong>forme finale</strong>.
+      </p>
+    </div>
   </div>
 </header>
 
@@ -29,7 +33,7 @@
   <!-- État des données                                              -->
   <!-- ============================================================ -->
   <div id="data-status" class="data-status" role="status" aria-live="polite">
-    <span class="spinner" aria-hidden="true"></span>
+    <span class="pokeball spinner" aria-hidden="true"></span>
     <span id="data-status-text">Chargement des données PokéAPI…</span>
   </div>
 
@@ -40,7 +44,7 @@
   <!-- ============================================================ -->
   <section class="panel" aria-labelledby="team-title">
     <div class="panel-head">
-      <h2 id="team-title">1. Mon équipe actuelle</h2>
+      <h2 id="team-title"><span class="section-num">1</span>Mon équipe actuelle</h2>
       <div class="panel-actions">
         <button type="button" id="btn-example" class="btn btn-ghost">Exemple d'équipe</button>
         <button type="button" id="btn-clear-team" class="btn btn-ghost">Tout effacer</button>
@@ -62,7 +66,7 @@
   <!-- ============================================================ -->
   <section class="panel" aria-labelledby="candidate-title">
     <div class="panel-head">
-      <h2 id="candidate-title">2. Nouveau Pokémon capturé</h2>
+      <h2 id="candidate-title"><span class="section-num">2</span>Nouveau Pokémon capturé</h2>
     </div>
     <p class="panel-hint">
       Exemple&nbsp;: <code>Rocabot</code>, <code>Carchacrok</code>,
@@ -88,7 +92,7 @@
   <!-- ============================================================ -->
   <section class="panel" id="analysis-panel" aria-labelledby="analysis-title" hidden>
     <div class="panel-head">
-      <h2 id="analysis-title">3. Analyse &amp; recommandation</h2>
+      <h2 id="analysis-title"><span class="section-num">3</span>Analyse &amp; recommandation</h2>
     </div>
     <div id="verdict"></div>
     <div id="reasons"></div>

@@ -293,9 +293,8 @@
       blockers.push({
         code: 'non-evolue',
         text:
-          candidate.frName +
-          ' n’est pas pleinement évolué : il ne peut pas remplacer un membre ' +
-          'de l’équipe en l’état.'
+          'En l’état, ' + candidate.frName + ' est encore une forme non évoluée : ' +
+          'c’est son évolution qu’il faut comparer (voir plus bas), pas ses stats actuelles.'
       });
     }
 
@@ -472,7 +471,12 @@
       return { available: false, reason: 'aucune-evolution', text: null };
     }
 
+    /* Classement des évolutions atteignables. Une FORME TERMINALE passe
+     * toujours devant une forme intermédiaire : c'est elle qui représente le
+     * potentiel réel du Pokémon (Griknot se juge sur Carchacrok, jamais sur
+     * Carmache). À égalité, on départage par le tier fiable puis par le BST. */
     var ranked = evo.nextForms.slice().sort(function (a, b) {
+      if (!!b.isTerminal !== !!a.isTerminal) return b.isTerminal ? 1 : -1;
       var ta = tierOf(a);
       var tb = tierOf(b);
       var sa = ta.trusted && ta.score != null ? ta.score : -1;
@@ -493,7 +497,8 @@
 
     /* Un entraînement « vaut clairement le coup » si l'évolution est bien
      * classée avec une donnée fiable. Sinon on reste factuel sur les gains
-     * chiffrés sans trancher. */
+     * chiffrés sans trancher. (evaluate() peut aussi activer ce drapeau si
+     * l'évolution dépasse démontrablement un membre de l'équipe.) */
     var worthTraining = bestTier.known && bestTier.trusted &&
       bestTier.score >= THRESHOLDS.WORTH_TRAINING_TIER_SCORE;
 
@@ -549,11 +554,14 @@
        * dispose pas toujours de cette information : dans le doute, on la
        * considère comme finale uniquement si aucune forme suivante n'est
        * listée après elle dans la chaîne. */
-      var deeper = (candidate.evolution.nextForms || []).some(function (f) {
-        return f.evolutionDepth > evolution.best.evolutionDepth;
-      });
+      /* La forme retenue est terminale dans la quasi-totalité des cas ; si elle
+       * ne l'est pas (chaîne partielle), on le signale pour que le moteur la
+       * traite elle-même comme non pleinement évoluée. */
       var evoRecord = Object.assign({}, evolution.best, {
-        evolution: { canEvolve: deeper, nextForms: [], stages: [], loaded: true }
+        evolution: {
+          canEvolve: !evolution.best.isTerminal,
+          nextForms: [], stages: [], loaded: true
+        }
       });
       evolutionComparisons = team.map(function (m) { return comparePair(evoRecord, m, team); });
       evolution.record = evoRecord;
@@ -578,21 +586,44 @@
 
     var hasFreeSlot = team.length < 6;
 
-    /* --- Viabilité dans l'absolu (utile quand un slot est libre) --- */
-    var viableOnItsOwn =
+    var candidateIsNFE = !!(candidate.evolution && candidate.evolution.canEvolve);
+
+    /* --- Viabilité dans l'absolu (utile quand un slot est libre) ---
+     *
+     * Un Pokémon non évolué ne gagne de l'expérience QUE s'il est dans
+     * l'équipe : sa valeur se juge donc sur sa forme finale, pas sur ses stats
+     * du moment. On distingue les deux lectures pour pouvoir l'expliquer.
+     */
+    var viableNow =
       candidateTier.known &&
       candidateTier.score >= THRESHOLDS.VIABLE_TIER_SCORE &&
-      !(candidate.evolution && candidate.evolution.canEvolve);
+      !candidateIsNFE;
+
+    var evolutionTier = evolution.available ? evolution.tier : null;
+    var viableAfterEvolution =
+      !!evolutionTier && evolutionTier.known &&
+      evolutionTier.score >= THRESHOLDS.VIABLE_TIER_SCORE;
+
+    var viableOnItsOwn = viableNow || viableAfterEvolution;
+
+    /* L'évolution dépasse-t-elle démontrablement un membre de l'équipe ?
+     * Si oui, l'entraîner n'est plus un pari : c'est un investissement chiffré. */
+    if (evolution.available && bestEvolved && bestEvolved.verdict === 'remplacer') {
+      evolution.worthTraining = true;
+    }
 
     /* --- Message de synthèse --- */
     var headline = buildHeadline({
       candidate: candidate,
       candidateTier: candidateTier,
+      candidateIsNFE: candidateIsNFE,
       team: team,
       hasFreeSlot: hasFreeSlot,
       bestNow: bestNow,
       bestEvolved: bestEvolved,
       evolution: evolution,
+      viableNow: viableNow,
+      viableAfterEvolution: viableAfterEvolution,
       viableOnItsOwn: viableOnItsOwn
     });
 
@@ -609,6 +640,9 @@
       bestNow: bestNow,
       bestEvolved: bestEvolved,
       hasFreeSlot: hasFreeSlot,
+      candidateIsNFE: candidateIsNFE,
+      viableNow: viableNow,
+      viableAfterEvolution: viableAfterEvolution,
       viableOnItsOwn: viableOnItsOwn,
       headline: headline,
       thresholds: THRESHOLDS
@@ -617,10 +651,25 @@
 
   /**
    * Construit la conclusion en français.
-   * `status` ∈ {'remplacer', 'ajouter', 'entrainer', 'a-tester', 'non-recommande', 'indetermine'}
+   *
+   * ORDRE DE PRIORITÉ — le point décisif
+   * ------------------------------------
+   * Un Pokémon qui n'est PAS dans l'équipe ne gagne aucune expérience, donc
+   * n'évoluera jamais. « Il n'est pas encore évolué » ne peut donc pas servir
+   * de motif pour l'écarter : c'est au contraire la raison même de l'intégrer.
+   *
+   * Un candidat non évolué est donc jugé sur SA FORME FINALE. Si celle-ci
+   * franchit les mêmes barrières que n'importe quel autre candidat, la réponse
+   * est « intègre-le maintenant », avec le coût de l'investissement annoncé
+   * clairement (équipe temporairement plus faible, condition d'évolution).
+   *
+   * `status` ∈ {'remplacer', 'ajouter', 'investir', 'entrainer',
+   *             'a-tester', 'non-recommande', 'indetermine'}
    */
   function buildHeadline(ctx) {
     var name = ctx.candidate.frName;
+    var evo = ctx.evolution;
+    var evoName = evo.available ? evo.best.frName : null;
 
     /* Équipe vide : rien à comparer. */
     if (!ctx.team.length) {
@@ -636,10 +685,44 @@
     var outclasses = ctx.bestNow && ctx.bestNow.verdict === 'remplacer'
       ? ctx.bestNow.member
       : null;
+    var outclassesEvolved = ctx.bestEvolved && ctx.bestEvolved.verdict === 'remplacer'
+      ? ctx.bestEvolved.member
+      : null;
+
+    /* Phrase d'investissement, réutilisée à plusieurs endroits : elle rappelle
+     * la contrainte d'XP et annonce le coût réel de la décision. */
+    function investmentNote(prefix) {
+      if (!ctx.candidateIsNFE || !evo.available) return '';
+      return ' ' + prefix + ' il ne gagnera de l’expérience QUE s’il est dans ton ' +
+        'équipe : c’est la seule façon de l’amener jusqu’à ' + evoName +
+        ' (' + evo.condition + '). En attendant, ton équipe sera temporairement ' +
+        'plus faible sur cet emplacement — c’est le prix de l’investissement.';
+    }
 
     /* 1. Une place est libre : inutile de sacrifier qui que ce soit.
      *    C'est toujours l'option la moins risquée, donc la première proposée. */
-    if (ctx.hasFreeSlot && (ctx.viableOnItsOwn || outclasses)) {
+    if (ctx.hasFreeSlot && (ctx.viableOnItsOwn || outclasses || outclassesEvolved)) {
+      /* Cas « pépite » : le candidat est faible maintenant, mais sa forme
+       * finale est excellente. C'est précisément le scénario où il faut
+       * l'embarquer tout de suite. */
+      if (ctx.candidateIsNFE && evo.available) {
+        return {
+          status: 'investir',
+          title:
+            'Mets ' + name + ' dans ton équipe dès maintenant : c’est ' + evoName +
+            ' que tu vises.',
+          text:
+            'Tu as une place libre, et ' +
+            (outclassesEvolved
+              ? 'une fois évolué, il dépassera ' + outclassesEvolved.frName + '.'
+              : 'son évolution ' + evoName +
+                (evo.tier.known ? ' (tier ' + evo.tier.tier + ')' : '') +
+                ' est un choix solide.') +
+            investmentNote('Attention :'),
+          target: outclassesEvolved
+        };
+      }
+
       return {
         status: 'ajouter',
         title:
@@ -670,67 +753,86 @@
       };
     }
 
-    /* 3. Le candidat n'est pas encore prêt, mais son évolution passe la barre. */
-    if (ctx.bestEvolved && ctx.bestEvolved.verdict === 'remplacer') {
+    /* 3. Le candidat est encore faible, mais sa forme finale dépasse
+     *    démontrablement un membre. L'équipe est pleine : il faut donc
+     *    accepter un creux temporaire pour récupérer un Pokémon supérieur. */
+    if (outclassesEvolved) {
       return {
-        status: 'entrainer',
+        status: 'investir',
         title:
-          'Garde ' + name + ' et entraîne-le : son évolution ' +
-          ctx.evolution.best.frName + ' vaut le coup.',
+          'Prends ' + name + ' à la place de ' + outclassesEvolved.frName +
+          ' : une fois évolué en ' + evoName + ', il sera supérieur.',
         text:
-          'En l’état, ' + name + ' ne surpasse aucun membre de ton équipe. En revanche, ' +
-          'une fois évolué en ' + ctx.evolution.best.frName + ' (' + ctx.evolution.condition +
-          '), il devient objectivement supérieur à ' + ctx.bestEvolved.member.frName + '.',
-        target: ctx.bestEvolved.member
+          'En l’état, ' + name + ' est plus faible — mais c’est sa forme finale ' +
+          'qui compte, et elle remplit tous les critères face à ' +
+          outclassesEvolved.frName + '.' +
+          investmentNote('Rappel :'),
+        target: outclassesEvolved
       };
     }
 
-    /* 4. Évolution prometteuse sans supériorité démontrée. */
-    if (ctx.evolution.available && ctx.evolution.worthTraining) {
+    /* 4. Évolution bien classée, sans supériorité démontrée sur un membre. */
+    if (evo.available && evo.worthTraining) {
       return {
         status: 'entrainer',
         title:
-          name + ' n’est pas meilleur que ton équipe actuelle, mais son évolution est solide.',
+          'Aucun de tes membres n’est dépassé, mais l’évolution de ' + name +
+          ' est solide.',
         text:
-          'Son évolution ' + ctx.evolution.best.frName + ' est classée tier ' +
-          ctx.evolution.tier.tier + '. L’entraîner peut valoir le coup, même si aucun ' +
-          'remplacement immédiat n’est justifié par les données.'
+          'Son évolution ' + evoName +
+          (evo.tier.known ? ' est classée tier ' + evo.tier.tier + '. ' : '. ') +
+          'Aucun remplacement n’est justifié par les données, mais si tu veux ' +
+          'l’entraîner, il devra occuper un emplacement pour gagner de l’expérience' +
+          ' (' + evo.condition + ').'
       };
     }
 
     /* 5. Un seul indice : intéressant, mais pas démontré. */
-    var testable = ctx.bestNow || ctx.bestEvolved;
-    if (testable && testable.verdict === 'a-tester') {
+    var testable =
+      (ctx.bestNow && ctx.bestNow.verdict === 'a-tester') ? ctx.bestNow :
+      (ctx.bestEvolved && ctx.bestEvolved.verdict === 'a-tester') ? ctx.bestEvolved : null;
+
+    if (testable) {
+      var viaEvolution = testable === ctx.bestEvolved;
       return {
         status: 'a-tester',
         title:
           name + ' est intéressant, mais pas clairement meilleur que ton équipe actuelle.',
         text:
-          'À tester en combat face à ' + testable.member.frName + ', mais les données ' +
-          'ne suffisent pas à affirmer qu’il est objectivement supérieur. ' +
-          'Pas de changement recommandé.',
+          'À tester en combat face à ' + testable.member.frName +
+          (viaEvolution ? ' une fois évolué en ' + evoName : '') +
+          ', mais les données ne suffisent pas à affirmer qu’il est objectivement ' +
+          'supérieur. Pas de changement recommandé.',
         target: testable.member
       };
     }
 
-    /* 6. Cas par défaut : on ne recommande rien. */
-    var reasonSample = null;
-    if (ctx.candidate.evolution && ctx.candidate.evolution.canEvolve) {
-      reasonSample = name + ' n’est pas encore pleinement évolué.';
+    /* 6. Cas par défaut : on ne recommande rien.
+     *    Le motif porte toujours sur la forme FINALE quand il y en a une —
+     *    dire « il n'est pas encore évolué » serait un argument circulaire. */
+    var reason;
+    if (ctx.candidateIsNFE && evo.available) {
+      reason =
+        'Même une fois évolué en ' + evoName +
+        (evo.tier.known ? ' (tier ' + evo.tier.tier + ')' : '') +
+        ', il ne dépasse aucun membre de ton équipe : l’investissement en ' +
+        'expérience ne serait pas rentable ici.';
+    } else if (ctx.candidateIsNFE && !evo.available) {
+      reason =
+        'Sa chaîne d’évolution n’a pas pu être analysée : sans cette donnée, ' +
+        'aucune conclusion n’est tirée sur son potentiel.';
     } else if (!ctx.candidateTier.known) {
-      reasonSample =
+      reason =
         'Aucune donnée de viabilité fiable n’est disponible pour ' + name +
         ' : par prudence, aucun changement n’est proposé.';
+    } else {
+      reason = 'Aucun membre de ton équipe n’est objectivement dépassé par ' + name + '.';
     }
 
     return {
       status: 'non-recommande',
-      title:
-        name + ' n’est pas recommandé pour ton équipe actuelle.',
-      text:
-        (reasonSample ? reasonSample + ' ' : '') +
-        'Aucun membre de ton équipe n’est objectivement dépassé par ' + name + '. ' +
-        'Pas de changement recommandé.'
+      title: name + ' n’est pas recommandé pour ton équipe actuelle.',
+      text: reason + ' Pas de changement recommandé.'
     };
   }
 

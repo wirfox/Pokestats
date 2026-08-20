@@ -27,10 +27,13 @@ actuels, et si son évolution justifie de l'entraîner.
 
 ## Principe : un outil volontairement prudent
 
-La règle de conception est simple :
+Deux règles de conception, et tout le reste en découle.
 
-> **Une recommandation positive doit être démontrable. Dans tous les autres cas,
-> l'outil répond « pas de changement recommandé ».**
+> **1. Une recommandation positive doit être démontrable.** Dans tous les autres
+> cas, l'outil répond « pas de changement recommandé ».
+>
+> **2. Un Pokémon hors équipe ne gagne aucune expérience.** Un candidat non
+> évolué est donc jugé sur sa **forme finale**, jamais sur ses stats du moment.
 
 Concrètement, l'application ne dira jamais « remplace X par ce Pokémon » sur la
 base d'une intuition. Une recommandation doit franchir deux barrières
@@ -38,7 +41,7 @@ successives :
 
 1. **Six conditions obligatoires**, toutes requises. Un seul échec bloque
    définitivement la recommandation.
-2. **Un faisceau d'au moins deux indices** objectifs et indépendants.
+3. **Un faisceau d'au moins deux indices** objectifs et indépendants.
 
 Avec un seul indice, la conclusion devient « à tester en combat, mais pas
 objectivement meilleur ». Avec zéro indice, ou dès qu'une condition obligatoire
@@ -46,6 +49,16 @@ objectivement meilleur ». Avec zéro indice, ou dès qu'une condition obligatoi
 
 Cette asymétrie est délibérée. L'outil accepte de rater une bonne suggestion,
 mais pas d'en faire une mauvaise.
+
+**La règle de l'expérience.** Un Pokémon qui n'est pas dans l'équipe ne monte
+jamais de niveau, donc n'évolue jamais. « Il n'est pas encore évolué » ne peut
+donc pas servir de motif pour l'écarter — c'est au contraire la raison de
+l'intégrer. Un candidat non évolué est jugé sur sa forme **terminale**, qui doit
+franchir exactement les mêmes barrières que n'importe quel autre candidat : le
+potentiel n'assouplit aucune règle, il déplace seulement l'objet de la
+comparaison. Quand la forme finale passe, la réponse est « intègre-le
+maintenant », avec le coût annoncé (équipe temporairement plus faible, condition
+d'évolution à remplir).
 
 **Corollaire important** : quand une donnée manque (tier inconnu, PokéAPI
 injoignable, chaîne d'évolution illisible), l'application le dit et s'abstient.
@@ -263,14 +276,22 @@ faibles est une **faiblesse critique**.
 
 ### Étape 5 — Verdict
 
-| Situation | Réponse |
-| --- | --- |
-| Une place est libre et le candidat est viable | **Ajout recommandé** — on ne demande jamais d'écarter quelqu'un s'il reste un emplacement vacant |
-| Conditions obligatoires OK + ≥ 2 indices | **Remplacement recommandé**, avec le membre nommé |
-| L'évolution du candidat franchit la barre | **À garder et entraîner**, avec la condition d'évolution |
-| Conditions obligatoires OK + 1 seul indice | **À tester, sans garantie** |
-| Une condition obligatoire échoue, ou 0 indice | **Pas de changement recommandé** |
-| PokéAPI injoignable | **Analyse impossible** — aucune conclusion |
+Les verdicts sont examinés dans cet ordre ; le premier qui s'applique gagne.
+
+| # | Situation | Réponse |
+| --- | --- | --- |
+| 1 | Une place est libre et le candidat (ou sa forme finale) est viable | **Ajout recommandé** — ou **À intégrer pour son évolution** si c'est une forme de base. On ne demande jamais d'écarter quelqu'un s'il reste un emplacement vacant |
+| 2 | Le candidat, tel quel, franchit toutes les barrières | **Remplacement recommandé**, avec le membre nommé |
+| 3 | Sa **forme finale** franchit toutes les barrières | **À intégrer pour son évolution** — avec le membre visé, la condition d'évolution et le creux temporaire annoncés |
+| 4 | L'évolution est bien classée, sans supériorité démontrée | **À garder et entraîner** |
+| 5 | Conditions obligatoires OK + 1 seul indice | **À tester, sans garantie** |
+| 6 | Une condition obligatoire échoue, ou 0 indice | **Pas de changement recommandé** |
+| — | PokéAPI injoignable | **Analyse impossible** — aucune conclusion |
+
+Au cas 6, si le candidat est une forme de base, le motif affiché porte
+toujours sur la **forme finale** (« même une fois évolué en X, il ne dépasse
+aucun membre ») — jamais sur le fait qu'il ne soit pas encore évolué, ce qui
+serait un argument circulaire.
 
 Chaque verdict est accompagné, dans l'interface, du détail des arguments
 retenus, des points bloquants et des chiffres qui les fondent. Le bloc
@@ -285,9 +306,19 @@ Quand le candidat peut encore évoluer, l'outil :
    jouables** (Lougaroc Diurne / Nocturne / Crépusculaire).
 2. Écarte les formes non obtenables en Écarlate / Violet (Méga-Évolutions,
    Dynamax, formes de raid) — les inclure fausserait l'analyse.
-3. Retient la meilleure évolution (tier fiable le plus élevé, puis BST).
-4. Rejoue **la totalité** de l'analyse avec cette évolution, et te dit si
-   l'entraîner vaut le coup.
+3. Retient la **forme terminale** : une forme intermédiaire ne passe jamais
+   devant, même si son tier est mieux renseigné. Griknot se juge sur Carchacrok,
+   jamais sur Carmache. À égalité (lignées qui branchent, comme Évoli), on
+   départage par le tier fiable puis par le BST.
+4. Rejoue **la totalité** de l'analyse avec cette forme finale — mêmes six
+   conditions obligatoires, mêmes deux indices requis.
+5. Si elle passe, recommande de l'intégrer **maintenant**, en rappelant la
+   contrainte d'expérience, la condition d'évolution et le fait que l'équipe
+   sera temporairement plus faible sur cet emplacement.
+
+C'est ce qui permet à l'outil de dire « prends ce Pokémon médiocre, c'est ce
+qu'il devient qui compte » — sans jamais relâcher les garanties : un potentiel
+faible reste un refus.
 
 ---
 
@@ -330,7 +361,7 @@ En cas d'échec réseau, les scripts n'écrasent rien et expliquent le problème
 npm test
 ```
 
-24 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+33 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -341,6 +372,18 @@ c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 - une donnée de confiance moyenne ne peut jamais servir de preuve ;
 - **900 tirages aléatoires** vérifient qu'aucun verdict « remplacer » ne viole
   un seul des invariants ci-dessus.
+
+Une section entière couvre le **potentiel d'évolution** :
+
+- la forme terminale est bien celle retenue, jamais une forme intermédiaire —
+  même quand l'intermédiaire a un meilleur tier connu ;
+- un Pokémon faible dont la forme finale est excellente **est** recommandé ;
+- la conclusion mentionne explicitement la contrainte d'expérience et la
+  condition d'évolution ;
+- « pas encore évolué » n'est jamais le motif final d'un refus ;
+- la prudence tient : une évolution médiocre ne déclenche rien, et aucun verdict
+  « à intégrer » ne sort sans un verdict « remplacer » démontré sur la forme
+  finale.
 
 S'y ajoutent le cas d'usage du cahier des charges (Rocabot → Lougaroc), les cas
 positifs (l'outil doit aussi savoir dire oui), la détection des rôles, la table
@@ -385,25 +428,30 @@ logique de décision en Node, sans navigateur.
 
 À lire avant d'accorder trop d'importance à un verdict.
 
-1. **IV, EV, natures et objets ne sont pas pris en compte.** L'analyse porte sur
+1. **Le temps d'entraînement n'est pas chiffré.** L'outil dit qu'une évolution
+   vaut l'investissement, et à quelle condition elle se déclenche, mais pas
+   combien de combats il te faudra. Un « à intégrer pour son évolution » sur un
+   Pokémon de niveau 5 face à une condition « niveau 54 » demande beaucoup de
+   patience — c'est à toi d'arbitrer.
+2. **IV, EV, natures et objets ne sont pas pris en compte.** L'analyse porte sur
    les stats de base. Un Pokémon bien entraîné peut largement dépasser un membre
    d'équipe mieux classé sur le papier.
-2. **Les capacités (moves) ne sont pas analysées.** Seuls les talents sont
+3. **Les capacités (moves) ne sont pas analysées.** Seuls les talents sont
    affichés, à titre informatif. Un moveset médiocre peut ruiner un Pokémon
    excellent sur le papier — et inversement.
-3. **Le Téracristal n'est pas modélisé.** Il peut changer radicalement le profil
+4. **Le Téracristal n'est pas modélisé.** Il peut changer radicalement le profil
    défensif d'un Pokémon, donc l'analyse de types.
-4. **Les tiers reflètent le compétitif, pas l'aventure solo.** Pour finir
+5. **Les tiers reflètent le compétitif, pas l'aventure solo.** Pour finir
    l'histoire d'Écarlate / Violet, un Pokémon tier C fait parfaitement l'affaire.
    Un tier bas n'est pas un verdict sur ton plaisir de jeu.
-5. **L'analyse de types est purement défensive.** La couverture offensive
+6. **L'analyse de types est purement défensive.** La couverture offensive
    (quels types ton équipe peut frapper) n'est pas évaluée, faute d'analyser les
    capacités.
-6. **Aucune synergie d'équipe fine.** Météo, terrains, redirection, relais de
+7. **Aucune synergie d'équipe fine.** Météo, terrains, redirection, relais de
    stats : rien de tout cela n'est modélisé.
-7. **Une connexion Internet est requise.** Sans PokéAPI, l'outil refuse
+8. **Une connexion Internet est requise.** Sans PokéAPI, l'outil refuse
    d'analyser plutôt que de deviner.
-8. **L'instantané de tiers doit être régénéré** pour être pleinement fiable
+9. **L'instantané de tiers doit être régénéré** pour être pleinement fiable
    (voir l'avertissement plus haut).
 
 Ces limites vont toutes dans le même sens : elles sont des raisons de considérer

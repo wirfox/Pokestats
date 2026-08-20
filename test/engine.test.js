@@ -142,6 +142,51 @@ var UNKNOWN_TIER_MON = mon({
 
 var BASE_TEAM = [MEOWSCARADA, SKELEDIRGE, QUAQUAVAL, GARCHOMP, CORVIKNIGHT, KINGAMBIT];
 
+/* Lignée Frigodo → Cryodo → Glaivodo : le cas « pépite » type — une forme de
+ * base médiocre dont la forme finale est un pilier du métagame. */
+var BAXCALIBUR = mon({
+  slug: 'baxcalibur', frName: 'Glaivodo', types: ['dragon', 'ice'],
+  stats: [115, 145, 92, 75, 86, 87]
+});
+
+var ARCTIBAX = mon({
+  slug: 'arctibax', frName: 'Cryodo', types: ['dragon', 'ice'],
+  stats: [90, 95, 66, 45, 65, 62]
+});
+
+function frigibax() {
+  return mon({
+    slug: 'frigibax', frName: 'Frigodo', types: ['dragon', 'ice'],
+    stats: [65, 75, 45, 35, 45, 55],
+    canEvolve: true,
+    nextForms: [
+      Object.assign({}, ARCTIBAX, {
+        evolutionCondition: 'niveau 35', evolutionDepth: 1, isTerminal: false
+      }),
+      Object.assign({}, BAXCALIBUR, {
+        evolutionCondition: 'niveau 54', evolutionDepth: 2, isTerminal: true
+      })
+    ]
+  });
+}
+
+/* Équipe volontairement moyenne, pour que l'investissement soit rentable. */
+var WEAK_TEAM = [
+  mon({ slug: 'lycanroc-midday', speciesSlug: 'lycanroc', frName: 'Lougaroc',
+        types: ['rock'], stats: [75, 115, 65, 55, 65, 112] }),
+  mon({ slug: 'dudunsparce', frName: 'Deusolourdo', types: ['normal'],
+        stats: [125, 100, 80, 85, 75, 55] }),
+  mon({ slug: 'oinkologne', frName: 'Fragroin', types: ['normal'],
+        stats: [110, 100, 75, 59, 80, 65] }),
+  mon({ slug: 'klawf', frName: 'Craparoi', types: ['rock'],
+        stats: [70, 100, 115, 35, 55, 75] }),
+  mon({ slug: 'bombirdier', frName: 'Bandelirou', types: ['flying', 'dark'],
+        stats: [70, 103, 85, 60, 85, 82] }),
+  mon({ slug: 'houndstone', frName: 'Tomberro', types: ['ghost'],
+        stats: [72, 101, 100, 50, 97, 68] })
+];
+
+
 /* ================================================================== */
 section('1. Garanties de sûreté — ce que le moteur ne doit JAMAIS faire');
 /* ================================================================== */
@@ -375,6 +420,132 @@ test('Lougaroc Crépusculaire (tier B) est préféré à la forme Diurne (tier C
   });
   var evo = analysis.evaluateEvolution(candidate);
   assert.strictEqual(evo.best.slug, 'lycanroc-dusk');
+});
+
+/* ================================================================== */
+section('3 bis. Potentiel d’évolution — un Pokémon hors équipe ne gagne aucun XP');
+/* ================================================================== */
+
+test('la forme TERMINALE est retenue, jamais une forme intermédiaire', function () {
+  var evo = analysis.evaluateEvolution(frigibax());
+  assert.strictEqual(evo.best.frName, 'Glaivodo',
+    'Frigodo doit être jugé sur Glaivodo, pas sur Cryodo');
+});
+
+test('la forme terminale prime même si l’intermédiaire a un meilleur tier connu', function () {
+  var candidate = mon({
+    slug: 'frigibax', frName: 'Frigodo', types: ['dragon', 'ice'],
+    stats: [65, 75, 45, 35, 45, 55],
+    canEvolve: true,
+    nextForms: [
+      /* Forme intermédiaire volontairement classée haut (tier S via le slug). */
+      Object.assign({}, ARCTIBAX, {
+        slug: 'garchomp', evolutionCondition: 'niveau 35',
+        evolutionDepth: 1, isTerminal: false
+      }),
+      /* Forme finale sans tier connu. */
+      Object.assign({}, BAXCALIBUR, {
+        slug: 'inconnu-total', speciesSlug: 'inconnu-total',
+        evolutionCondition: 'niveau 54', evolutionDepth: 2, isTerminal: true
+      })
+    ]
+  });
+  var evo = analysis.evaluateEvolution(candidate);
+  assert.strictEqual(evo.best.isTerminal, true,
+    'une forme intermédiaire ne doit jamais être présentée comme le potentiel réel');
+});
+
+test('un Pokémon faible dont l’évolution finale est excellente EST recommandé', function () {
+  var result = analysis.evaluate({ team: WEAK_TEAM, candidate: frigibax() });
+
+  assert.strictEqual(result.hasFreeSlot, false, 'équipe de 6 pour ce scénario');
+  assert.strictEqual(result.headline.status, 'investir',
+    'Frigodo doit être recommandé pour ce que devient Glaivodo');
+  assert.ok(result.headline.target, 'le membre à écarter doit être nommé');
+  assert.ok(result.headline.title.indexOf('Glaivodo') !== -1,
+    'la conclusion doit nommer la forme finale visée');
+});
+
+test('la conclusion explique la contrainte d’expérience', function () {
+  var result = analysis.evaluate({ team: WEAK_TEAM, candidate: frigibax() });
+  var full = result.headline.title + ' ' + result.headline.text;
+  assert.ok(/exp(é|e)rience/i.test(full),
+    'la contrainte « pas d’XP hors équipe » doit être explicite : ' + full);
+  assert.ok(full.indexOf('niveau 54') !== -1,
+    'la condition d’évolution doit être annoncée');
+});
+
+test('avec une place libre, la pépite est proposée à l’ajout immédiat', function () {
+  var result = analysis.evaluate({
+    team: WEAK_TEAM.slice(0, 3),
+    candidate: frigibax()
+  });
+  assert.ok(result.hasFreeSlot);
+  assert.strictEqual(result.headline.status, 'investir');
+  assert.ok(/exp(é|e)rience/i.test(result.headline.text));
+});
+
+test('le potentiel d’évolution rend le candidat viable malgré un tier D actuel', function () {
+  var result = analysis.evaluate({ team: WEAK_TEAM.slice(0, 3), candidate: frigibax() });
+  assert.strictEqual(result.viableNow, false, 'Frigodo n’est pas viable en l’état');
+  assert.strictEqual(result.viableAfterEvolution, true, 'Glaivodo l’est');
+  assert.strictEqual(result.viableOnItsOwn, true);
+});
+
+test('« pas encore évolué » n’est JAMAIS le motif final d’un refus', function () {
+  /* Rocabot face à une équipe solide : le refus doit porter sur Lougaroc,
+   * pas sur le fait que Rocabot ne soit pas évolué (argument circulaire). */
+  var candidate = mon({
+    slug: 'rockruff', frName: 'Rocabot', types: ['rock'],
+    stats: [45, 65, 40, 30, 40, 60],
+    canEvolve: true,
+    nextForms: [
+      Object.assign({}, LYCANROC_MIDDAY, {
+        evolutionCondition: 'niveau 25, le jour', evolutionDepth: 1, isTerminal: true
+      }),
+      Object.assign({}, LYCANROC_DUSK, {
+        evolutionCondition: 'niveau 25, au crépuscule', evolutionDepth: 1, isTerminal: true
+      })
+    ]
+  });
+  var result = analysis.evaluate({ team: BASE_TEAM, candidate: candidate });
+
+  assert.strictEqual(result.headline.status, 'non-recommande');
+  assert.ok(result.headline.text.indexOf('Lougaroc') !== -1,
+    'le motif doit porter sur la forme finale : ' + result.headline.text);
+  assert.ok(!/pas encore pleinement (é|e)volu/i.test(result.headline.text),
+    'le motif ne doit pas être circulaire : ' + result.headline.text);
+});
+
+test('la prudence tient : une évolution médiocre ne suffit pas', function () {
+  var candidate = mon({
+    slug: 'magikarp', frName: 'Magicarpe', types: ['water'],
+    stats: [20, 10, 55, 15, 20, 80],
+    canEvolve: true,
+    nextForms: [
+      Object.assign({}, mon({
+        slug: 'lycanroc-midday', speciesSlug: 'lycanroc', frName: 'Évolution moyenne',
+        types: ['rock'], stats: [75, 115, 65, 55, 65, 112]
+      }), { evolutionCondition: 'niveau 20', evolutionDepth: 1, isTerminal: true })
+    ]
+  });
+  var result = analysis.evaluate({ team: BASE_TEAM, candidate: candidate });
+  assert.notStrictEqual(result.headline.status, 'investir');
+  assert.notStrictEqual(result.headline.status, 'remplacer');
+});
+
+test('aucun verdict « investir » sans évolution démontrablement supérieure', function () {
+  var result = analysis.evaluate({ team: WEAK_TEAM, candidate: frigibax() });
+  if (result.headline.status === 'investir' && result.headline.target) {
+    var cmp = result.evolutionComparisons.filter(function (c) {
+      return c.member === result.headline.target;
+    })[0];
+    assert.ok(cmp, 'la comparaison correspondante doit exister');
+    assert.strictEqual(cmp.verdict, 'remplacer',
+      'un « investir » ciblé doit s’appuyer sur un verdict « remplacer » de la forme finale');
+    assert.strictEqual(cmp.blockers.length, 0);
+    assert.ok(cmp.evidence.length >= analysis.THRESHOLDS.EVIDENCE_REQUIRED);
+  }
 });
 
 /* ================================================================== */
