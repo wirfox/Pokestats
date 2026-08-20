@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comparateur de types — PokeStats</title>
+  <meta name="description" content="Contre quels types un Pokémon est-il fort, et par lesquels est-il vulnérable ? Table d'efficacité complète, attaque et défense séparées.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="pokeball pokeball-emblem" aria-hidden="true"></div>
+    <div class="header-text">
+      <h1>Poké<span>Stats</span></h1>
+      <p class="tagline">Comparateur de types</p>
+      <p class="header-note">
+        Choisis un type — ou deux, pour un Pokémon à double type — et vois
+        immédiatement ce qu'il frappe fort et ce qui le met en danger.
+      </p>
+    </div>
+  </div>
+</header>
+
+<nav class="site-nav" aria-label="Navigation principale">
+  <div class="wrap">
+    <a href="index.html">Analyseur d'équipe</a>
+    <a href="types.html" aria-current="page">Comparateur de types</a>
+  </div>
+</nav>
+
+<div class="wrap main-wrap">
+
+  <div id="data-status" class="data-status" role="status" aria-live="polite">
+    <span class="pokeball spinner" aria-hidden="true"></span>
+    <span id="data-status-text">Chargement de la table des types…</span>
+  </div>
+
+  <div id="global-error" class="alert alert-error" hidden role="alert"></div>
+
+  <!-- ============================================================ -->
+  <!-- Choix du type                                                 -->
+  <!-- ============================================================ -->
+  <section class="panel" aria-labelledby="picker-title">
+    <div class="panel-head">
+      <h2 id="picker-title"><span class="section-num">1</span>Choisis un type</h2>
+      <div class="panel-actions">
+        <button type="button" id="btn-reset" class="btn btn-ghost">Réinitialiser</button>
+      </div>
+    </div>
+    <p class="panel-hint">
+      Clique sur un type. Clique sur un second pour simuler un Pokémon à double
+      type (ex.&nbsp;: Dragon&nbsp;+&nbsp;Sol pour Carchacrok). Un troisième clic
+      remplace le plus ancien.
+    </p>
+
+    <div id="type-picker" class="type-picker"><!-- généré par js/typechart-page.js --></div>
+
+    <div id="selection" class="selection" hidden></div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Résultats                                                     -->
+  <!-- ============================================================ -->
+  <section class="panel" id="results-panel" aria-labelledby="results-title" hidden>
+    <div class="panel-head">
+      <h2 id="results-title"><span class="section-num">2</span>Efficacité</h2>
+    </div>
+
+    <p class="panel-hint">
+      Attaque et défense sont deux questions distinctes&nbsp;: le Feu est fort
+      <em>contre</em> la Plante, mais vulnérable <em>face à</em> l'Eau. Les
+      confondre est l'erreur la plus courante — c'est pourquoi les deux profils
+      sont séparés ici.
+    </p>
+
+    <div class="matchups">
+      <div class="matchup-col">
+        <h3 class="matchup-title matchup-attack">
+          En attaque
+          <span class="matchup-sub" id="attack-sub"></span>
+        </h3>
+        <div id="attack-groups"></div>
+      </div>
+
+      <div class="matchup-col">
+        <h3 class="matchup-title matchup-defense">
+          En défense
+          <span class="matchup-sub" id="defense-sub"></span>
+        </h3>
+        <div id="defense-groups"></div>
+      </div>
+    </div>
+
+    <details class="method">
+      <summary>Comment ces multiplicateurs sont-ils obtenus&nbsp;?</summary>
+      <div id="method-body"></div>
+    </details>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Table complète                                                -->
+  <!-- ============================================================ -->
+  <section class="panel" aria-labelledby="grid-title">
+    <div class="panel-head">
+      <h2 id="grid-title"><span class="section-num">3</span>Table complète</h2>
+    </div>
+    <p class="panel-hint">
+      Les 18&nbsp;types en attaque (lignes) contre les 18&nbsp;types en défense
+      (colonnes). Survole une case pour le détail. Le tableau défile
+      horizontalement sur petit écran.
+    </p>
+    <div class="grid-scroll">
+      <table id="type-grid" class="type-grid"><!-- généré --></table>
+    </div>
+    <div class="grid-legend">
+      <span><i class="cell cell-4"></i> ×4</span>
+      <span><i class="cell cell-2"></i> ×2</span>
+      <span><i class="cell cell-1"></i> ×1</span>
+      <span><i class="cell cell-05"></i> ×½</span>
+      <span><i class="cell cell-025"></i> ×¼</span>
+      <span><i class="cell cell-0"></i> ×0</span>
+    </div>
+  </section>
+
+  <section class="panel disclaimer" aria-labelledby="disclaimer-title">
+    <h2 id="disclaimer-title">Mentions légales / Disclaimer</h2>
+    <p lang="fr">
+      <strong>Français —</strong> Ce projet est un outil fan non officiel.
+      Pokémon et tous les noms, images et éléments associés sont des marques
+      déposées de leurs propriétaires respectifs (Nintendo, Game Freak,
+      The Pokémon Company). Ce site n'est ni affilié ni approuvé par ces
+      entités. Les données Pokémon proviennent de
+      <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a>
+      à titre informatif.
+    </p>
+    <p lang="en">
+      <strong>English —</strong> This project is an unofficial fan tool.
+      Pokémon and all associated names, images and elements are registered
+      trademarks of their respective owners (Nintendo, Game Freak,
+      The Pokémon Company). This site is neither affiliated with nor endorsed
+      by these entities. Pokémon data comes from
+      <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a>,
+      for informational purposes only.
+    </p>
+  </section>
+
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>
+      PokeStats — outil fan non officiel · Données&nbsp;:
+      <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a>
+      · <a href="index.html">Analyseur d'équipe</a>
+    </p>
+  </div>
+</footer>
+
+<script src="data/type-chart.js"></script>
+<script src="js/api.js"></script>
+<script src="js/types.js"></script>
+<script src="js/typechart-page.js"></script>
+
+</body>
+</html>

@@ -888,6 +888,68 @@ test('toutes les entrées de tiers.js sont valides', function () {
   });
 });
 
+/* ================================================================== */
+section('7. Comparateur de types — attaque et défense sont distinctes');
+/* ================================================================== */
+
+test('le profil OFFENSIF d’un type est correct', function () {
+  var t = PokeStats.types;
+  /* Le Feu frappe fort la Plante, mais pas l’Eau. */
+  assert.strictEqual(t.effectiveness('fire', ['grass']), 2);
+  assert.strictEqual(t.effectiveness('fire', ['water']), 0.5);
+  assert.strictEqual(t.effectiveness('fire', ['dragon']), 0.5);
+  assert.strictEqual(t.effectiveness('ground', ['flying']), 0);
+});
+
+test('le profil DÉFENSIF est bien l’inverse du profil offensif', function () {
+  var t = PokeStats.types;
+  /* Le Feu est fort CONTRE la Plante, mais vulnérable FACE À l’Eau : c’est
+   * exactement la confusion que la page sépare. */
+  assert.strictEqual(t.effectiveness('fire', ['grass']), 2, 'Feu attaque Plante');
+  assert.strictEqual(t.effectiveness('water', ['fire']), 2, 'Eau attaque Feu');
+  assert.strictEqual(t.effectiveness('grass', ['fire']), 0.5, 'Plante attaque Feu');
+});
+
+test('les doubles types multiplient les faiblesses (×4) et les résistances (×¼)', function () {
+  var t = PokeStats.types;
+  /* Carchacrok, Dragon/Sol : doublement faible à la Glace. */
+  assert.strictEqual(t.effectiveness('ice', ['dragon', 'ground']), 4);
+  /* Corvaillus, Vol/Acier : double résistance à l’Insecte. */
+  assert.strictEqual(t.effectiveness('bug', ['flying', 'steel']), 0.25);
+  /* Une immunité l’emporte toujours sur une faiblesse. */
+  assert.strictEqual(t.effectiveness('ground', ['flying', 'steel']), 0);
+});
+
+test('chaque multiplicateur possible est une valeur attendue', function () {
+  var t = PokeStats.types;
+  var permises = [0, 0.25, 0.5, 1, 2, 4];
+  var tous = t.allTypes();
+  tous.forEach(function (a) {
+    tous.forEach(function (d1) {
+      assert.ok(permises.indexOf(t.effectiveness(a, [d1])) !== -1,
+        'mono-type inattendu : ' + a + ' → ' + d1);
+      tous.forEach(function (d2) {
+        if (d1 === d2) return;
+        var v = t.effectiveness(a, [d1, d2]);
+        assert.ok(permises.indexOf(v) !== -1,
+          'double type inattendu : ' + a + ' → ' + d1 + '/' + d2 + ' = ' + v);
+      });
+    });
+  });
+});
+
+test('chaque type a au moins une faiblesse et une résistance', function () {
+  var t = PokeStats.types;
+  t.allTypes().forEach(function (def) {
+    assert.ok(t.weaknesses([def]).length > 0, def + ' devrait avoir une faiblesse');
+    assert.ok(t.resistances([def]).length > 0, def + ' devrait avoir une résistance');
+  });
+});
+
+/* ================================================================== */
+section('8. Intégrité des données embarquées');
+/* ================================================================== */
+
 test('les données embarquées déclarent une provenance vérifiable', function () {
   var tiers = globalThis.POKESTATS_TIERS.meta;
   require(path.join(__dirname, '..', 'data', 'names-fr.js'));
