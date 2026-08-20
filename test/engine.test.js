@@ -669,6 +669,104 @@ test('les données de capacités couvrent tous les Pokémon classés', function 
 });
 
 /* ================================================================== */
+section('3 quater. Potentiel contre potentiel — l’équipier évolue aussi');
+/* ================================================================== */
+
+/* Lignée Khélocrok → Torgamord (485) face à Rocabot → Lougaroc (487).
+ * Le piège : comparer Torgamord à ROCABOT donne un avantage écrasant, alors
+ * que Rocabot deviendra Lougaroc, plus fort que Torgamord. */
+var TORGAMORD = mon({
+  slug: 'drednaw', frName: 'Torgamord', types: ['water', 'rock'],
+  stats: [90, 115, 90, 48, 68, 74]
+});
+
+function khelocrok() {
+  return mon({
+    slug: 'chewtle', frName: 'Khélocrok', types: ['water'],
+    stats: [50, 64, 50, 38, 38, 44],
+    canEvolve: true,
+    nextForms: [Object.assign({}, TORGAMORD, {
+      evolutionCondition: 'niveau 22', evolutionDepth: 1, isTerminal: true
+    })]
+  });
+}
+
+function rocabot() {
+  return mon({
+    slug: 'rockruff', frName: 'Rocabot', types: ['rock'],
+    stats: [45, 65, 40, 30, 40, 60],
+    canEvolve: true,
+    nextForms: [Object.assign({}, LYCANROC_DUSK, {
+      evolutionCondition: 'niveau 25, au crépuscule', evolutionDepth: 1, isTerminal: true
+    })]
+  });
+}
+
+test('un équipier non évolué est comparé sur SA forme finale, pas son état actuel', function () {
+  var result = analysis.evaluate({ team: [rocabot()], candidate: khelocrok() });
+
+  /* Torgamord (485) ne dépasse pas Lougaroc (487) : aucun échange. */
+  assert.notStrictEqual(result.headline.status, 'investir',
+    'Khélocrok ne doit pas évincer Rocabot : Lougaroc est plus fort que Torgamord');
+  assert.notStrictEqual(result.headline.status, 'remplacer');
+
+  var contre = result.evolutionComparisons[0];
+  assert.strictEqual(contre.member.frName, 'Torgamord'.replace('Torgamord', contre.member.frName),
+    'la comparaison doit porter sur une forme finale');
+  assert.ok(contre.memberWillEvolve, 'le moteur doit savoir que l’équipier évolue');
+  assert.strictEqual(contre.memberNow.frName, 'Rocabot',
+    'le membre d’origine doit rester identifiable pour les messages');
+});
+
+test('le refus nomme explicitement l’évolution de l’équipier', function () {
+  var result = analysis.evaluate({ team: [rocabot()], candidate: khelocrok() });
+  assert.ok(/Rocabot →/.test(result.headline.text),
+    'le motif doit montrer que Rocabot évolue : ' + result.headline.text);
+});
+
+test('un candidat meilleur MAINTENANT mais à évolution médiocre est refusé', function () {
+  /* Le cas inverse de la pépite : fort tout de suite, décevant à terme. */
+  var evolutionMediocre = mon({
+    slug: 'dudunsparce', frName: 'Évolution médiocre', types: ['normal'],
+    stats: [125, 100, 80, 85, 75, 55]
+  });
+  var candidat = mon({
+    slug: 'oinkologne', frName: 'Bon maintenant', types: ['normal'],
+    stats: [110, 100, 75, 59, 80, 65],
+    canEvolve: true,
+    nextForms: [Object.assign({}, evolutionMediocre, {
+      evolutionCondition: 'niveau 30', evolutionDepth: 1, isTerminal: true
+    })]
+  });
+  var equipier = mon({
+    slug: 'frigibax', frName: 'Faible maintenant', types: ['dragon', 'ice'],
+    stats: [65, 75, 45, 35, 45, 55],
+    canEvolve: true,
+    nextForms: [Object.assign({}, BAXCALIBUR, {
+      evolutionCondition: 'niveau 54', evolutionDepth: 2, isTerminal: true
+    })]
+  });
+
+  /* Le candidat a 360 de BST contre 320 : il est meilleur à cet instant. */
+  assert.ok(candidat.bst > equipier.bst, 'prémisse : le candidat est meilleur maintenant');
+
+  var result = analysis.evaluate({ team: [equipier], candidate: candidat });
+  assert.notStrictEqual(result.headline.status, 'remplacer',
+    'un avantage immédiat ne doit pas l’emporter sur un déficit à terme');
+  assert.notStrictEqual(result.headline.status, 'investir');
+});
+
+test('la comparaison à terme reste correcte face à un équipier déjà évolué', function () {
+  /* Quand l'équipier ne peut plus évoluer, sa forme finale est lui-même :
+   * le comportement d'origine doit être préservé. */
+  var result = analysis.evaluate({ team: [LYCANROC_DUSK], candidate: khelocrok() });
+  var contre = result.evolutionComparisons[0];
+  assert.strictEqual(contre.memberWillEvolve, false);
+  assert.strictEqual(contre.member.frName, contre.memberNow.frName,
+    'un Pokémon pleinement évolué est sa propre forme finale');
+});
+
+/* ================================================================== */
 section('4. Cas positifs — le moteur doit quand même savoir dire oui');
 /* ================================================================== */
 

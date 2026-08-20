@@ -456,10 +456,16 @@
         '</div>' +
       '</div>';
 
+    /* Quand la comparaison porte sur une forme finale, on rappelle de quel
+     * Pokémon de l'équipe il s'agit : « Rocabot → Lougaroc ». */
+    var libelleMembre = cmp.memberWillEvolve && cmp.memberNow
+      ? cmp.memberNow.frName + ' → ' + cmp.member.frName
+      : cmp.member.frName;
+
     return '' +
       '<details class="cmp"' + (cmp.verdict === 'remplacer' ? ' open' : '') + '>' +
         '<summary>' +
-          '<span class="cmp-name">vs ' + escapeHtml(cmp.member.frName) + '</span>' +
+          '<span class="cmp-name">vs ' + escapeHtml(libelleMembre) + '</span>' +
           '<span class="cmp-badge ' + escapeHtml(cmp.verdict) + '">' +
             escapeHtml(
               cmp.verdict === 'remplacer' ? 'Remplacer'
@@ -485,13 +491,22 @@
       '</div>';
 
     if (result.evolutionComparisons.length) {
-      var evoName = result.evolution.best.frName;
+      /* Comparaison à terme : chaque Pokémon est ramené à SA forme finale.
+       * Comparer l'évolution du candidat à l'état actuel d'un équipier serait
+       * truqué — l'équipier aussi va évoluer. */
+      var nomCandidat = result.evolution.available
+        ? result.evolution.best.frName
+        : result.candidate.frName;
+
       html += '<div class="comparisons" style="margin-top:20px">' +
-        '<h3>Et une fois évolué en ' + escapeHtml(evoName) + '&nbsp;?</h3>' +
+        '<h3>Comparaison à terme — chacun sous sa forme finale</h3>' +
+        '<p class="cmp-note">Chaque Pokémon est comparé une fois pleinement ' +
+          'évolué. Un équipier encore en forme de base est donc jugé sur ce ' +
+          'qu’il deviendra, pas sur ce qu’il est aujourd’hui.</p>' +
         result.evolutionComparisons
           .slice()
           .sort(function (a, b) { return b.margin - a.margin; })
-          .map(function (c) { return comparisonHtml(c, evoName); })
+          .map(function (c) { return comparisonHtml(c, nomCandidat); })
           .join('') +
         '</div>';
     }
@@ -559,6 +574,11 @@
       '<ul>' +
         '<li>Un candidat non évolué est jugé sur sa <strong>forme finale</strong> ' +
           '(Griknot se juge sur Carchacrok, jamais sur Carmache).</li>' +
+        '<li><strong>Les équipiers aussi.</strong> Un membre encore en forme de ' +
+          'base est comparé sur ce qu’il deviendra, pas sur son état du moment. ' +
+          'Sans cela, la comparaison serait truquée&nbsp;: un Khélocrok ' +
+          '(→ Torgamord, 485) semblerait écraser un Rocabot (280) alors que ' +
+          'Rocabot devient Lougaroc (487), donc plus fort.</li>' +
         '<li>Cette forme finale doit franchir exactement les mêmes conditions ' +
           'obligatoires et le même faisceau d\'indices que n\'importe quel autre ' +
           'candidat. Le potentiel n\'assouplit aucune règle.</li>' +

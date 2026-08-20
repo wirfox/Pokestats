@@ -655,6 +655,38 @@
     };
   }
 
+  /**
+   * Forme finale d'un Pokémon : sa meilleure évolution terminale, ou lui-même
+   * s'il est déjà pleinement évolué.
+   *
+   * POURQUOI C'EST INDISPENSABLE
+   * ----------------------------
+   * Comparer la forme finale d'un candidat à la forme ACTUELLE d'un membre est
+   * une comparaison truquée : le membre aussi va évoluer. Sans ce correctif,
+   * l'outil conseillait d'échanger un Rocabot (280) contre un Khélocrok au
+   * motif qu'il deviendrait Torgamord (485) — en oubliant que Rocabot devient
+   * Lougaroc (487), donc meilleur.
+   *
+   * On compare donc toujours potentiel contre potentiel.
+   *
+   * @returns {{record: Object, willEvolve: boolean, evolution: Object}}
+   */
+  function finalFormOf(record) {
+    var evo = evaluateEvolution(record);
+    if (!evo.available) {
+      return { record: record, willEvolve: false, evolution: evo };
+    }
+    /* La forme retenue est terminale dans la quasi-totalité des cas ; si la
+     * chaîne est partielle, on la signale comme pouvant encore évoluer. */
+    var evolved = Object.assign({}, evo.best, {
+      evolution: {
+        canEvolve: !evo.best.isTerminal,
+        nextForms: [], stages: [], loaded: true
+      }
+    });
+    return { record: evolved, willEvolve: true, evolution: evo };
+  }
+
   /* ================================================================== */
   /* Évaluation globale                                                  */
   /* ================================================================== */
@@ -679,25 +711,32 @@
     /* --- Comparaisons du candidat tel quel --- */
     var comparisons = team.map(function (m) { return comparePair(candidate, m, team); });
 
-    /* --- Comparaisons de l'évolution, si elle existe --- */
+    /* --- Comparaisons « à terme » : forme finale contre forme finale ---
+     *
+     * Chaque membre est ramené à SA propre forme finale, pas à son état du
+     * moment. C'est la seule comparaison honnête : un Rocabot dans l'équipe
+     * deviendra Lougaroc, et un candidat doit dépasser Lougaroc — pas Rocabot.
+     */
+    var candidateFinal = finalFormOf(candidate);
+    var teamFinals = team.map(finalFormOf);
+    var teamPotential = teamFinals.map(function (f) { return f.record; });
+
+    var somethingEvolves = candidateFinal.willEvolve ||
+      teamFinals.some(function (f) { return f.willEvolve; });
+
     var evolutionComparisons = [];
-    if (evolution.available) {
-      /* L'évolution héritant de la chaîne, on la traite comme pleinement
-       * évoluée seulement si elle n'évolue pas elle-même à son tour. On ne
-       * dispose pas toujours de cette information : dans le doute, on la
-       * considère comme finale uniquement si aucune forme suivante n'est
-       * listée après elle dans la chaîne. */
-      /* La forme retenue est terminale dans la quasi-totalité des cas ; si elle
-       * ne l'est pas (chaîne partielle), on le signale pour que le moteur la
-       * traite elle-même comme non pleinement évoluée. */
-      var evoRecord = Object.assign({}, evolution.best, {
-        evolution: {
-          canEvolve: !evolution.best.isTerminal,
-          nextForms: [], stages: [], loaded: true
-        }
+    if (somethingEvolves) {
+      evolutionComparisons = teamPotential.map(function (finalMember, index) {
+        var cmp = comparePair(candidateFinal.record, finalMember, teamPotential);
+        /* On conserve le lien vers les Pokémon tels que l'utilisateur les
+         * connaît aujourd'hui, pour pouvoir les nommer dans les messages. */
+        cmp.memberNow = team[index];
+        cmp.memberWillEvolve = teamFinals[index].willEvolve;
+        cmp.candidateNow = candidate;
+        cmp.candidateWillEvolve = candidateFinal.willEvolve;
+        return cmp;
       });
-      evolutionComparisons = team.map(function (m) { return comparePair(evoRecord, m, team); });
-      evolution.record = evoRecord;
+      if (candidateFinal.willEvolve) evolution.record = candidateFinal.record;
     }
 
     function bestOf(list) {
@@ -754,6 +793,7 @@
       hasFreeSlot: hasFreeSlot,
       bestNow: bestNow,
       bestEvolved: bestEvolved,
+      evolutionComparisons: evolutionComparisons,
       evolution: evolution,
       viableNow: viableNow,
       viableAfterEvolution: viableAfterEvolution,
@@ -819,9 +859,31 @@
     var outclasses = ctx.bestNow && ctx.bestNow.verdict === 'remplacer'
       ? ctx.bestNow.member
       : null;
-    var outclassesEvolved = ctx.bestEvolved && ctx.bestEvolved.verdict === 'remplacer'
-      ? ctx.bestEvolved.member
+    /* Le membre est nommé tel que l'utilisateur le connaît aujourd'hui
+     * (« Rocabot »), même si la comparaison a porté sur sa forme finale. */
+    var cibleEvoluee = ctx.bestEvolved && ctx.bestEvolved.verdict === 'remplacer'
+      ? ctx.bestEvolved : null;
+    var outclassesEvolved = cibleEvoluee
+      ? (cibleEvoluee.memberNow || cibleEvoluee.member)
       : null;
+
+    /**
+     * Explique la comparaison à terme sans rien cacher : si le membre visé
+     * évolue lui aussi, on le dit et on nomme sa forme finale. Sans cela,
+     * l'utilisateur ne peut pas vérifier que la comparaison est honnête.
+     */
+    function comparaisonATerme() {
+      if (!cibleEvoluee) return '';
+      var m = cibleEvoluee.member;            // forme finale du membre
+      var mNow = cibleEvoluee.memberNow || m; // membre tel qu'il est aujourd'hui
+      if (!cibleEvoluee.memberWillEvolve) {
+        return ' ' + evoName + ' (BST ' + cibleEvoluee.candidate.bst + ') dépasse ' +
+          mNow.frName + ' (BST ' + m.bst + ').';
+      }
+      return ' Comparaison faite à armes égales : ' + mNow.frName + ' deviendra ' +
+        m.frName + ' (BST ' + m.bst + '), et ' + evoName + ' (BST ' +
+        cibleEvoluee.candidate.bst + ') le dépasse malgré tout.';
+    }
 
     /* Phrase d'investissement, réutilisée à plusieurs endroits : elle rappelle
      * la contrainte d'XP et annonce le coût réel de la décision. */
@@ -848,7 +910,8 @@
           text:
             'Tu as une place libre, et ' +
             (outclassesEvolved
-              ? 'une fois évolué, il dépassera ' + outclassesEvolved.frName + '.'
+              ? 'une fois évolué, il dépassera ' + outclassesEvolved.frName + '.' +
+                comparaisonATerme()
               : 'son évolution ' + evoName +
                 (evo.tier.known ? ' (tier ' + evo.tier.tier + ')' : '') +
                 ' est un choix solide.') +
@@ -900,6 +963,7 @@
           'En l’état, ' + name + ' est plus faible — mais c’est sa forme finale ' +
           'qui compte, et elle remplit tous les critères face à ' +
           outclassesEvolved.frName + '.' +
+          comparaisonATerme() +
           investmentNote('Rappel :'),
         target: outclassesEvolved
       };
@@ -946,11 +1010,20 @@
      *    dire « il n'est pas encore évolué » serait un argument circulaire. */
     var reason;
     if (ctx.candidateIsNFE && evo.available) {
+      /* Si des membres évoluent aussi, le dire : c'est souvent la vraie raison
+       * du refus, et l'utilisateur doit pouvoir le vérifier. */
+      var membresQuiEvoluent = (ctx.evolutionComparisons || [])
+        .filter(function (c) { return c.memberWillEvolve; })
+        .map(function (c) { return (c.memberNow || c.member).frName + ' → ' + c.member.frName; });
+
       reason =
         'Même une fois évolué en ' + evoName +
         (evo.tier.known ? ' (tier ' + evo.tier.tier + ')' : '') +
-        ', il ne dépasse aucun membre de ton équipe : l’investissement en ' +
-        'expérience ne serait pas rentable ici.';
+        ', il ne dépasse aucun membre de ton équipe' +
+        (membresQuiEvoluent.length
+          ? ', évolutions comprises (' + membresQuiEvoluent.join(', ') + ')'
+          : '') +
+        ' : l’investissement en expérience ne serait pas rentable ici.';
     } else if (ctx.candidateIsNFE && !evo.available) {
       reason =
         'Sa chaîne d’évolution n’a pas pu être analysée : sans cette donnée, ' +

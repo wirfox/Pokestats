@@ -415,9 +415,20 @@ Quand le candidat peut encore évoluer, l'outil :
    devant, même si son tier est mieux renseigné. Griknot se juge sur Carchacrok,
    jamais sur Carmache. À égalité (lignées qui branchent, comme Évoli), on
    départage par le tier fiable puis par le BST.
-4. Rejoue **la totalité** de l'analyse avec cette forme finale — mêmes six
+4. **Ramène aussi chaque équipier à sa propre forme finale.** C'est la seule
+   comparaison honnête : un équipier encore en forme de base va évoluer lui
+   aussi. Comparer la forme finale du candidat à l'état actuel d'un équipier
+   fausserait le résultat en faveur du candidat — un Khélocrok (→ Torgamord,
+   485) semblerait écraser un Rocabot (280), alors que Rocabot devient
+   Lougaroc (487) et le dépasse. Le refus indique alors explicitement
+   « évolutions comprises (Rocabot → Lougaroc) ».
+
+   Conséquence directe : un candidat **meilleur maintenant** mais à l'évolution
+   décevante est refusé, et une forme de base médiocre à l'évolution excellente
+   est retenue. C'est le potentiel qui décide, des deux côtés.
+5. Rejoue **la totalité** de l'analyse avec cette forme finale — mêmes six
    conditions obligatoires, mêmes deux indices requis.
-5. Si elle passe, recommande de l'intégrer **maintenant**, en rappelant la
+6. Si elle passe, recommande de l'intégrer **maintenant**, en rappelant la
    contrainte d'expérience, la condition d'évolution et le fait que l'équipe
    sera temporairement plus faible sur cet emplacement.
 
@@ -517,7 +528,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-46 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+50 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
