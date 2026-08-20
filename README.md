@@ -273,6 +273,52 @@ de cet index. Et aucune analyse ne porte sur les noms — uniquement sur les
 données renvoyées par l'API. Une erreur de nom ne peut donc pas fausser une
 recommandation.
 
+### Capacités
+
+[`data/moves.js`](data/moves.js) porte deux indicateurs par Pokémon, calculés
+à partir des capacités **apprenables en Génération 9**.
+
+| | |
+| --- | --- |
+| **Sources** | `@pkmn/dex@0.10.11` (listes d'apprentissage) + PokéAPI GraphQL (noms français) |
+| **Couverture** | 841 Pokémon, 174 capacités référencées |
+| **Régénérer** | `npm run build:moves` |
+
+- **Puissance STAB** — meilleure puissance *effective* (puissance de base ×
+  précision) parmi les capacités du type du Pokémon, dans sa catégorie
+  offensive dominante. Un attaquant physique sans capacité physique de son type
+  obtient 0.
+- **Couverture** — nombre de types frappés au moins ×2 par ses **quatre**
+  meilleures capacités. Un Pokémon n'ayant que quatre emplacements, compter
+  toutes ses capacités apprenables surestimerait grossièrement sa portée.
+
+Deux catégories de capacités sont écartées, parce que leur puissance affichée
+ne correspond à aucun usage réel : celles à **rechargement** (Rafale Feu,
+Ultralaser), celles à **charge** (Lance-Soleil) et les **sacrificielles**
+(Explosion).
+
+> **Pourquoi la précision et le rechargement comptent.** Sans ces filtres,
+> l'outil bloquait le remplacement de Flâmigator par Flotte-Mèche — un tier SS —
+> au seul motif que Flâmigator apprend Rafale Feu (150 de puissance… et un tour
+> de rechargement). Et sans la pondération par la précision, Exploforce (120
+> pour 70 %) passait devant une capacité de 100 toujours au but.
+
+**Dans le moteur**, ces indicateurs servent au *rendement offensif* —
+puissance STAB × stat d'attaque concernée. Comparer des puissances sans la
+stat qui les porte serait trompeur : Flotte-Mèche (95 de puissance, 135 d'Att.
+Spé.) frappe aussi fort que Flâmigator (117 de puissance, 110 d'Att. Spé.).
+
+| Règle | Effet |
+| --- | --- |
+| Aucune capacité STAB dans la catégorie dominante | **Blocage** — les stats d'attaque sont inexploitables |
+| Rendement offensif < 80 % de celui du membre visé **et** couverture moindre | **Blocage** — l'avantage de statistiques ne compense pas |
+| Couverture supérieure d'au moins 3 types | **Indice** en faveur du remplacement |
+| Donnée absente | **Rien** — ni blocage, ni indice |
+
+> **Limite importante** : ces indicateurs mesurent ce qu'un Pokémon **peut
+> apprendre**, pas les capacités qu'il porte réellement. Un Carchacrok mal
+> configuré reste un Carchacrok mal configuré.
+
 ### Table d'efficacité des types
 
 Construite en priorité depuis PokéAPI (`/type/{nom}` → `damage_relations`).
@@ -449,6 +495,7 @@ Dernier audit : **1866 entrées vérifiées contre PokéAPI, 0 écart.**
 | Noms français (1025) | PokéAPI GraphQL | 1025 | **0** |
 | Identifiants de tiers (841) | `@pkmn/dex@0.10.11`, filtrés sur PokéAPI | 841 | **0** |
 | Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | 18 types | — |
+| Capacités (841 Pokémon, 174 capacités) | `@pkmn/dex@0.10.11` + PokéAPI | 174 noms FR | **0** |
 | Second avis Game8 (98) | Game8, apparié sur PokéAPI | 98 | **0** non résolu |
 | Images des Pokémon | PokéAPI (artwork officiel 475×475) | testé en navigateur | — |
 
@@ -470,7 +517,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-38 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+46 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -545,9 +592,9 @@ logique de décision en Node, sans navigateur.
 2. **IV, EV, natures et objets ne sont pas pris en compte.** L'analyse porte sur
    les stats de base. Un Pokémon bien entraîné peut largement dépasser un membre
    d'équipe mieux classé sur le papier.
-3. **Les capacités (moves) ne sont pas analysées.** Seuls les talents sont
-   affichés, à titre informatif. Un moveset médiocre peut ruiner un Pokémon
-   excellent sur le papier — et inversement.
+3. **Les capacités sont analysées en potentiel, pas en configuration réelle.**
+   L'outil sait ce qu'un Pokémon *peut* apprendre, pas ce qu'il porte. Il ne
+   connaît pas non plus ton objet tenu ni ta stratégie.
 4. **Le Téracristal n'est pas modélisé.** Il peut changer radicalement le profil
    défensif d'un Pokémon, donc l'analyse de types.
 5. **Les tiers reflètent le compétitif, pas l'aventure solo.** Pour finir

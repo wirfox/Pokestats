@@ -131,6 +131,44 @@
   }
 
   /**
+   * Arsenal offensif : puissance STAB, couverture et capacités clés.
+   *
+   * Ces indicateurs mesurent un POTENTIEL — ce que le Pokémon peut apprendre —
+   * et non le jeu de capacités réellement équipé. C'est dit explicitement dans
+   * l'infobulle pour éviter tout malentendu.
+   */
+  function movesHtml(record) {
+    var info = analysis.movesOf(record);
+    if (!info.known) {
+      return '<div class="moves moves-unknown">Capacités&nbsp;: donnée indisponible ' +
+        '— aucune conclusion n’en est tirée.</div>';
+    }
+
+    var chips = info.moves.map(function (slug) {
+      var m = analysis.moveInfo(slug);
+      return '<span class="move-chip' + (m.type ? ' type-' + escapeHtml(m.type) : '') + '" ' +
+        'title="' + escapeHtml((m.type ? types.frType(m.type) : '') +
+          (m.power ? ' · puissance ' + m.power : '') +
+          (m.category === 'phy' ? ' · physique' : m.category === 'spe' ? ' · spéciale' : '')) + '">' +
+        escapeHtml(m.name) + '</span>';
+    }).join('');
+
+    var cat = info.category === 'phy' ? 'physique' : 'spéciale';
+    var stab = info.stabPower
+      ? 'STAB ' + info.stabPower + ' (' + cat + ')'
+      : '<strong class="moves-warn">aucune capacité STAB ' + cat + '</strong>';
+
+    return '' +
+      '<div class="moves">' +
+        '<span class="moves-metric" title="Meilleure puissance de base parmi les capacités du type du Pokémon, dans sa catégorie offensive dominante. Potentiel apprenable, pas le set équipé.">' +
+          stab + '</span>' +
+        '<span class="moves-metric" title="Nombre de types frappés au moins ×2 par ses quatre meilleures capacités.">' +
+          'couverture ' + info.coverage + '/18</span>' +
+        (chips ? '<div class="move-list">' + chips + '</div>' : '') +
+      '</div>';
+  }
+
+  /**
    * Fiche complète d'un Pokémon.
    * @param {Object} record
    * @param {{showStats?: boolean, opponent?: Object, showAbilities?: boolean}} [opts]
@@ -156,6 +194,8 @@
         }).join(', ') + '</span></div>'
       : '';
 
+    var moves = o.showMoves === false ? '' : movesHtml(record);
+
     return '' +
       '<div class="mon">' +
         spriteHtml(record) +
@@ -173,6 +213,7 @@
             (isNFE ? '<span class="nfe-chip" title="Ce Pokémon peut encore évoluer.">Non évolué</span>' : '') +
           '</div>' +
           abilities +
+          moves +
           (o.showStats === false ? '' : statsHtml(record, o.opponent)) +
         '</div>' +
       '</div>';
@@ -377,6 +418,12 @@
             escapeHtml(analysis.formatPercent(d.keyDelta)) + '</span>') +
           figure('Tiers',
             escapeHtml((d.tierCandidate.tier || '?') + ' vs ' + (d.tierMember.tier || '?'))) +
+          (d.movesCandidate && d.movesCandidate.known && d.movesMember && d.movesMember.known
+            ? figure('Puissance STAB',
+                d.movesCandidate.stabPower + ' vs ' + d.movesMember.stabPower) +
+              figure('Couverture',
+                d.movesCandidate.coverage + ' vs ' + d.movesMember.coverage + ' types')
+            : '') +
         '</div>' +
 
         (cmp.evidence.length
@@ -473,6 +520,26 @@
       '<p>Avec un seul indice, la conclusion est « à tester, mais pas objectivement ' +
         'meilleur ». Avec zéro, ou dès qu\'une condition obligatoire échoue&nbsp;: ' +
         '« pas de changement recommandé ».</p>' +
+
+      '<h4>Capacités</h4>' +
+      '<p>Des statistiques élevées ne servent à rien sans capacité pour les ' +
+        'exploiter. Deux indicateurs sont calculés à partir des capacités ' +
+        'apprenables en Génération 9&nbsp;:</p>' +
+      '<ul>' +
+        '<li><strong>Puissance STAB</strong>&nbsp;: meilleure puissance de base ' +
+          'parmi les capacités du type du Pokémon, dans sa catégorie offensive ' +
+          'dominante. Un attaquant physique sans capacité physique de son type ' +
+          'obtient 0 — et le remplacement est alors bloqué.</li>' +
+        '<li><strong>Couverture</strong>&nbsp;: nombre de types frappés au moins ' +
+          '×2 par ses quatre meilleures capacités. Un Pokémon n\'ayant que quatre ' +
+          'emplacements, compter toutes ses capacités surestimerait sa portée.</li>' +
+      '</ul>' +
+      '<p>Un arsenal nettement plus faible (puissance STAB inférieure de plus de ' +
+        '25 points ET couverture moindre) bloque le remplacement, même quand les ' +
+        'statistiques brutes sont favorables. Une couverture supérieure d\'au ' +
+        'moins 3 types compte comme un indice.</p>' +
+      '<p><em>Limite&nbsp;: ces indicateurs mesurent ce qu\'un Pokémon PEUT ' +
+        'apprendre, pas les capacités qu\'il porte réellement.</em></p>' +
 
       '<h4>Pokémon non évolués — la règle de l\'expérience</h4>' +
       '<p>Un Pokémon qui n\'est pas dans l\'équipe ne gagne <strong>aucun point ' +

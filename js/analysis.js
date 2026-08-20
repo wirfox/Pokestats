@@ -58,7 +58,16 @@
 
     /* Score de tier à partir duquel entraîner une évolution vaut clairement
      * le coup. 3 = tier A. */
-    WORTH_TRAINING_TIER_SCORE: 3
+    WORTH_TRAINING_TIER_SCORE: 3,
+
+    /* Rapport de rendement offensif en dessous duquel l'arsenal devient
+     * handicapant. 0,8 = le candidat frappe au moins 20 % moins fort que le
+     * membre visé, tous facteurs combinés. */
+    OFFENSIVE_OUTPUT_RATIO: 0.8,
+
+    /* Gain de couverture offensive constituant un indice à part entière :
+     * frapper 3 types de plus au moins ×2 change réellement les combats. */
+    COVERAGE_CLEAR_GAIN: 3
   };
 
   /* ================================================================== */
@@ -105,6 +114,67 @@
       confidence: 0, trusted: false, secondOpinion: null, disagrees: false,
       matchedOn: null, desc: ''
     };
+  }
+
+  /* ================================================================== */
+  /* Capacités                                                           */
+  /* ================================================================== */
+
+  /**
+   * Indicateurs de capacités d'un Pokémon (voir data/moves.js).
+   *
+   * Un Pokémon peut être statistiquement supérieur et pourtant inutilisable :
+   * 130 d'Attaque ne servent à rien sans capacité physique correcte. Ces
+   * indicateurs permettent au moteur de le détecter.
+   *
+   * @returns {{known: boolean, stabPower: number, category: ?string,
+   *            coverage: number, moves: string[]}}
+   *   known=false quand la donnée manque : le moteur n'en tire alors AUCUNE
+   *   conclusion, ni blocage ni indice.
+   */
+  function movesOf(record) {
+    var table = root.POKESTATS_MOVES;
+    if (!table || !table.byPokemon) {
+      return { known: false, stabPower: 0, category: null, coverage: 0, moves: [] };
+    }
+    var entry = table.byPokemon[record.slug] || table.byPokemon[record.speciesSlug];
+    if (!entry) {
+      return { known: false, stabPower: 0, category: null, coverage: 0, moves: [] };
+    }
+    return {
+      known: true,
+      stabPower: entry[0],
+      category: entry[1],
+      coverage: entry[2],
+      moves: entry[3] || []
+    };
+  }
+
+  /**
+   * Rendement offensif : puissance STAB effective × stat d'attaque concernée.
+   *
+   * Comparer les puissances de capacités sans la stat qui les porte est
+   * trompeur : Flotte-Mèche (95 de puissance, 135 d'Att. Spé.) frappe aussi
+   * fort que Flâmigator (117 de puissance, 110 d'Att. Spé.). Le produit est
+   * un indicateur de dégâts autrement plus fidèle que l'un ou l'autre seul.
+   *
+   * @returns {number} 0 si la donnée manque ou si aucune STAB n'est utilisable
+   */
+  function offensiveOutput(record, moves) {
+    var info = moves || movesOf(record);
+    if (!info.known || !info.stabPower) return 0;
+    var stat = info.category === 'phy'
+      ? record.stats.attack
+      : record.stats['special-attack'];
+    return info.stabPower * stat;
+  }
+
+  /** Détail d'une capacité : nom français, type, catégorie, puissance. */
+  function moveInfo(slug) {
+    var table = root.POKESTATS_MOVES;
+    var m = table && table.moves && table.moves[slug];
+    if (!m) return { slug: slug, name: slug.replace(/-/g, ' '), type: null, category: null, power: 0 };
+    return { slug: slug, name: m[0], type: m[1], category: m[2], power: m[3] };
   }
 
   /* ================================================================== */
@@ -344,6 +414,44 @@
       });
     }
 
+    /* ---- Capacités ----
+     * On ne conclut que si les deux Pokémon ont des données : une information
+     * manquante ne doit ni bloquer ni justifier. */
+    var mc = movesOf(candidate);
+    var mm = movesOf(member);
+    var movesComparable = mc.known && mm.known;
+
+    if (movesComparable && mc.stabPower === 0) {
+      blockers.push({
+        code: 'aucune-stab',
+        text:
+          candidate.frName + ' n’apprend aucune capacité offensive de son type ' +
+          'dans sa catégorie dominante : ses statistiques d’attaque sont ' +
+          'inexploitables.'
+      });
+    }
+
+    /* Le cas que cette règle attrape : des stats clés supérieures sur le
+     * papier, mais un arsenal qui ne suit pas. On raisonne sur le RENDEMENT
+     * (puissance × stat d'attaque) et non sur la puissance seule, sinon un
+     * Pokémon très fort mais aux capacités modestes serait écarté à tort. */
+    var outputC = offensiveOutput(candidate, mc);
+    var outputM = offensiveOutput(member, mm);
+    if (movesComparable && mc.stabPower > 0 && outputM > 0 &&
+        outputC < outputM * THRESHOLDS.OFFENSIVE_OUTPUT_RATIO &&
+        mc.coverage < mm.coverage) {
+      blockers.push({
+        code: 'moveset-plus-faible',
+        text:
+          'Rendement offensif nettement inférieur : ' +
+          Math.round((outputC / outputM) * 100) + ' % de celui de ' +
+          member.frName + ' (puissance STAB ' + mc.stabPower + ' contre ' +
+          mm.stabPower + ', couverture ' + mc.coverage + ' contre ' +
+          mm.coverage + ' types). L’avantage de statistiques ne compense pas ' +
+          'ce déficit.'
+      });
+    }
+
     if (worsensTeam) {
       blockers.push({
         code: 'aggrave-equipe',
@@ -371,6 +479,16 @@
         text:
           'Stats clés supérieures de ' + formatPercent(keyDelta) +
           ' (seuil retenu : ' + formatPercent(THRESHOLDS.KEY_STAT_CLEAR_GAIN) + ').'
+      });
+    }
+
+    if (movesComparable && mc.coverage >= mm.coverage + THRESHOLDS.COVERAGE_CLEAR_GAIN) {
+      evidence.push({
+        code: 'couverture-offensive',
+        text:
+          'Couverture offensive supérieure : frappe ' + mc.coverage +
+          ' types au moins ×2, contre ' + mm.coverage + ' pour ' +
+          member.frName + '.'
       });
     }
 
@@ -447,7 +565,11 @@
         bstDelta: bstDelta,
         strategicGain: strategicGain,
         criticalBefore: profileBefore.criticalWeaknesses,
-        criticalAfter: profileAfter.criticalWeaknesses
+        criticalAfter: profileAfter.criticalWeaknesses,
+        movesCandidate: mc,
+        movesMember: mm,
+        outputCandidate: outputC,
+        outputMember: outputM
       }
     };
   }
@@ -551,6 +673,7 @@
 
     var teamProfile = teamTypeProfile(team);
     var candidateTier = tierOf(candidate);
+    var candidateMoves = movesOf(candidate);
     var evolution = evaluateEvolution(candidate);
 
     /* --- Comparaisons du candidat tel quel --- */
@@ -640,6 +763,7 @@
     return {
       candidate: candidate,
       candidateTier: candidateTier,
+      candidateMoves: candidateMoves,
       candidateRole: roleOf(candidate),
       candidateRoleLabel: ROLES[roleOf(candidate)].label,
       team: team,
@@ -850,6 +974,9 @@
     THRESHOLDS: THRESHOLDS,
     ROLES: ROLES,
     tierOf: tierOf,
+    movesOf: movesOf,
+    moveInfo: moveInfo,
+    offensiveOutput: offensiveOutput,
     roleOf: roleOf,
     keyStatValue: keyStatValue,
     keyStatDelta: keyStatDelta,

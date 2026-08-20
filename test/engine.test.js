@@ -21,6 +21,7 @@ var root = globalThis;
 require(path.join(__dirname, '..', 'data', 'tiers.js'));
 require(path.join(__dirname, '..', 'js', 'api.js'));
 require(path.join(__dirname, '..', 'js', 'types.js'));
+require(path.join(__dirname, '..', 'data', 'moves.js'));
 require(path.join(__dirname, '..', 'js', 'analysis.js'));
 
 var PokeStats = root.PokeStats;
@@ -559,6 +560,112 @@ test('aucun verdict « investir » sans évolution démontrablement supérieure'
     assert.strictEqual(cmp.blockers.length, 0);
     assert.ok(cmp.evidence.length >= analysis.THRESHOLDS.EVIDENCE_REQUIRED);
   }
+});
+
+/* ================================================================== */
+section('3 ter. Capacités — des stats élevées ne suffisent pas');
+/* ================================================================== */
+
+test('les indicateurs de capacités sont chargés pour les Pokémon réels', function () {
+  var mc = analysis.movesOf(GARCHOMP);
+  assert.strictEqual(mc.known, true, 'Carchacrok doit avoir des données de capacités');
+  assert.ok(mc.stabPower >= 100, 'puissance STAB attendue élevée, vue : ' + mc.stabPower);
+  assert.strictEqual(mc.category, 'phy', 'Carchacrok est un attaquant physique');
+  assert.ok(mc.coverage >= 8, 'couverture attendue large, vue : ' + mc.coverage);
+  assert.ok(mc.moves.length > 0);
+});
+
+test('une donnée de capacités absente ne bloque ni ne justifie rien', function () {
+  /* Pokémon synthétique : aucun identifiant réel, donc aucune donnée. */
+  var inconnu = mon({
+    slug: 'pokemon-imaginaire-xyz', frName: 'Inconnu', types: ['rock'],
+    stats: [80, 100, 80, 60, 70, 90]
+  });
+  assert.strictEqual(analysis.movesOf(inconnu).known, false);
+
+  var cmp = analysis.comparePair(inconnu, LYCANROC_MIDDAY, [LYCANROC_MIDDAY]);
+  assert.ok(!cmp.blockers.some(function (b) {
+    return b.code === 'aucune-stab' || b.code === 'moveset-plus-faible';
+  }), 'aucun blocage ne doit venir d’une donnée manquante');
+  assert.ok(!cmp.evidence.some(function (e) { return e.code === 'couverture-offensive'; }),
+    'aucun indice ne doit venir d’une donnée manquante');
+});
+
+test('un Pokémon sans capacité STAB exploitable est bloqué', function () {
+  /* Magicarpe : 0 de puissance STAB dans sa catégorie offensive, vérifié à la
+   * génération des données. On lui prête des statistiques flatteuses pour
+   * isoler l’effet des capacités. */
+  var table = globalThis.POKESTATS_MOVES.byPokemon;
+  assert.strictEqual(table.magikarp[0], 0, 'Magicarpe ne doit avoir aucune STAB utile');
+
+  var karp = mon({
+    slug: 'magikarp', frName: 'Magicarpe', types: ['water'],
+    stats: [120, 140, 110, 60, 100, 120]
+  });
+  var cmp = analysis.comparePair(karp, LYCANROC_MIDDAY, [LYCANROC_MIDDAY]);
+  assert.ok(cmp.blockers.some(function (b) { return b.code === 'aucune-stab'; }),
+    'le blocage « aucune capacité STAB » doit se déclencher');
+  assert.strictEqual(cmp.verdict, 'aucun-changement');
+});
+
+test('un arsenal nettement plus faible bloque malgré des stats favorables', function () {
+  var table = globalThis.POKESTATS_MOVES.byPokemon;
+  var faible = table.applin;   // 0 STAB, couverture 2
+  assert.ok(faible && faible[2] <= 4, 'Verpom doit avoir une couverture très étroite');
+
+  /* Stats volontairement supérieures à celles de Lougaroc : sans la règle sur
+   * les capacités, le remplacement passerait. */
+  var candidat = mon({
+    slug: 'applin', frName: 'Verpom', types: ['grass', 'dragon'],
+    stats: [90, 130, 90, 70, 90, 120]
+  });
+  var cmp = analysis.comparePair(candidat, LYCANROC_MIDDAY, [LYCANROC_MIDDAY]);
+  assert.ok(cmp.details.keyDelta > 0, 'les statistiques doivent bien être favorables');
+  assert.notStrictEqual(cmp.verdict, 'remplacer',
+    'un arsenal indigent doit empêcher le remplacement');
+});
+
+test('une meilleure couverture offensive compte comme indice', function () {
+  var large = mon({
+    slug: 'baxcalibur', frName: 'Glaivodo', types: ['dragon', 'ice'],
+    stats: [115, 145, 92, 75, 86, 87]
+  });
+  var etroit = mon({
+    slug: 'lycanroc-midday', speciesSlug: 'lycanroc', frName: 'Lougaroc',
+    types: ['rock'], stats: [75, 115, 65, 55, 65, 112]
+  });
+  var a = analysis.movesOf(large);
+  var b = analysis.movesOf(etroit);
+  assert.ok(a.known && b.known);
+
+  var cmp = analysis.comparePair(large, etroit, [etroit]);
+  if (a.coverage >= b.coverage + analysis.THRESHOLDS.COVERAGE_CLEAR_GAIN) {
+    assert.ok(cmp.evidence.some(function (e) { return e.code === 'couverture-offensive'; }),
+      'l’indice de couverture devait être retenu');
+  }
+});
+
+test('les données de capacités couvrent tous les Pokémon classés', function () {
+  var moves = globalThis.POKESTATS_MOVES;
+  var tiers = globalThis.POKESTATS_TIERS.entries;
+  assert.ok(/^vérifié/.test(moves.meta.provenance));
+
+  var manquants = Object.keys(tiers).filter(function (slug) {
+    return !moves.byPokemon[slug];
+  });
+  assert.strictEqual(manquants.length, 0,
+    'Pokémon classés sans données de capacités : ' + manquants.slice(0, 5).join(', '));
+
+  Object.keys(moves.byPokemon).forEach(function (slug) {
+    var e = moves.byPokemon[slug];
+    assert.ok(Array.isArray(e) && e.length === 4, 'format invalide : ' + slug);
+    assert.ok(typeof e[0] === 'number' && e[0] >= 0, 'puissance STAB invalide : ' + slug);
+    assert.ok(e[1] === 'phy' || e[1] === 'spe', 'catégorie invalide : ' + slug);
+    assert.ok(e[2] >= 0 && e[2] <= 18, 'couverture hors bornes : ' + slug);
+    e[3].forEach(function (m) {
+      assert.ok(moves.moves[m], 'capacité absente du dictionnaire : ' + m + ' (' + slug + ')');
+    });
+  });
 });
 
 /* ================================================================== */

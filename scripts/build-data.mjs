@@ -614,6 +614,277 @@ module.exports = {
 }
 
 /* ================================================================== */
+/* Génération : capacités                                              */
+/* ================================================================== */
+
+/*
+ * POURQUOI LES CAPACITÉS COMPTENT
+ * -------------------------------
+ * Un Pokémon peut être statistiquement supérieur et pourtant inutilisable :
+ * 130 d'Attaque ne servent à rien sans capacité physique correcte. Sans cette
+ * donnée, l'outil recommandait des remplacements sur la seule foi des stats.
+ *
+ * On ne livre pas les listes d'apprentissage complètes (plusieurs mégaoctets)
+ * mais trois indicateurs dérivés, calculés une fois pour toutes :
+ *
+ *   puissance STAB  Puissance de base la plus élevée parmi les capacités
+ *                   offensives du type du Pokémon, DANS LA CATÉGORIE qui
+ *                   correspond à sa meilleure stat offensive. Un attaquant
+ *                   physique sans capacité physique de son type obtient 0.
+ *
+ *   couverture      Nombre de types (sur 18) qu'il peut frapper au moins ×2
+ *                   avec ses quatre meilleures capacités. Un Pokémon n'ayant
+ *                   que quatre emplacements, compter toutes ses capacités
+ *                   apprenables surestimerait grossièrement sa portée.
+ *
+ *   capacités clés  Les quelques capacités retenues par ce calcul, affichées
+ *                   à l'utilisateur avec leur nom français.
+ *
+ * Seules les capacités réellement apprenables en Génération 9 sont retenues
+ * (sources préfixées « 9 » chez Pokémon Showdown).
+ */
+
+const MIN_POWER_FOR_COVERAGE = 60;   // en dessous, la capacité ne « frappe » pas vraiment
+const MOVE_SLOTS = 4;                // un Pokémon ne porte que quatre capacités
+
+/** Nom d'une capacité → identifiant PokéAPI (« Dragon Claw » → « dragon-claw »). */
+function moveSlug(name) {
+  return toPokeApiSlug(name);
+}
+
+/** Noms français des capacités, en une requête GraphQL. */
+async function fetchFrenchMoveNames() {
+  const query =
+    'query { movename(where: {language: {name: {_eq: "fr"}}}) { name move { name } } }';
+  const res = await fetch(POKEAPI_GRAPHQL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  if (!res.ok) throw new Error(`GraphQL capacités → HTTP ${res.status}`);
+  const payload = await res.json();
+  if (payload.errors) throw new Error('GraphQL capacités : erreur');
+  /* La clé renvoyée par PokéAPI est l'IDENTIFIANT de la capacité
+   * (« dragon-claw »), pas son nom d'affichage. L'indexer sur le nom
+   * Showdown (« Dragon Claw ») ne trouverait jamais rien. */
+  const out = new Map();
+  for (const row of payload.data?.movename || []) {
+    if (row.name && row.move?.name) out.set(row.move.name, row.name);
+  }
+  return out;
+}
+
+/** Capacités apprenables en Génération 9, avec repli sur l'espèce de base. */
+async function gen9Learnset(species) {
+  for (const id of [species.id, species.baseSpecies && toID(species.baseSpecies)]) {
+    if (!id) continue;
+    const doc = await gen.learnsets.get(id);
+    const table = doc && doc.learnset;
+    if (!table) continue;
+    const learnable = Object.keys(table).filter((move) =>
+      (table[move] || []).some((source) => String(source).startsWith('9'))
+    );
+    if (learnable.length) return learnable;
+  }
+  return [];
+}
+
+function toID(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+/**
+ * Sélection gloutonne des quatre capacités maximisant la couverture.
+ * Le glouton n'est pas prouvé optimal, mais l'écart avec l'optimum est
+ * négligeable ici et le résultat reste reproductible.
+ */
+function bestCoverage(moves, chart, allTypes) {
+  const covered = new Set();
+  const chosen = [];
+  const pool = moves.slice();
+
+  for (let slot = 0; slot < MOVE_SLOTS && pool.length; slot++) {
+    let best = null;
+    let bestGain = -1;
+    for (const move of pool) {
+      const gain = allTypes.filter(
+        (def) => !covered.has(def) && (chart[move.type] || {})[def] >= 2
+      ).length;
+      /* À gain égal, la capacité la plus puissante l'emporte : choix
+       * déterministe, donc régénération reproductible. */
+      if (gain > bestGain || (gain === bestGain && best && move.power > best.power)) {
+        best = move; bestGain = gain;
+      }
+    }
+    if (!best || bestGain <= 0) break;
+    allTypes.forEach((def) => {
+      if ((chart[best.type] || {})[def] >= 2) covered.add(def);
+    });
+    chosen.push(best);
+    pool.splice(pool.indexOf(best), 1);
+  }
+  return { count: covered.size, moves: chosen };
+}
+
+async function buildMoves() {
+  console.log('  → noms français des capacités depuis PokéAPI…');
+  let frNames = new Map();
+  try {
+    frNames = await fetchFrenchMoveNames();
+    console.log(`    ${frNames.size} noms récupérés`);
+  } catch (err) {
+    console.log(`    (indisponible : ${err.message} — noms anglais conservés)`);
+  }
+
+  const { formes, especes } = await fetchReferences();
+  const { chart, types: allTypes } = buildTypeChartData();
+
+  const enByNum = new Map();
+  for (let i = 0; i < EN_NAMES.length; i++) enByNum.set(i + 1, EN_NAMES[i]);
+
+  const dictionary = {};
+  const byPokemon = {};
+  const stats = { traites: 0, sansCapacite: 0, sansStab: 0 };
+
+  for (const species of gen.species.all()) {
+    const tier = mapSmogonTier(species.tier);
+    if (!tier || species.num <= 0) continue;
+
+    const slug = species.forme
+      ? resolveFormeSlug(species.name, formes)
+      : toPokeApiSlug(enByNum.get(species.num) || species.name);
+    if (!slug || (!formes.has(slug) && !especes.has(slug))) continue;
+
+    const learnable = await gen9Learnset(species);
+    if (!learnable.length) { stats.sansCapacite += 1; continue; }
+
+    /* Catégorie offensive dominante, déduite des stats de base. */
+    const physical = species.baseStats.atk >= species.baseStats.spa;
+    const wantedCategory = physical ? 'Physical' : 'Special';
+    const stabTypes = species.types;
+
+    const damaging = [];
+    for (const id of learnable) {
+      const move = gen.moves.get(id);
+      if (!move || !move.exists) continue;
+      if (move.category === 'Status' || !move.basePower) continue;
+
+      /* Capacités écartées : elles affichent une puissance flatteuse mais ne
+       * s'emploient pas en pratique. Les retenir faisait passer Flâmigator
+       * pour mieux armé que Flotte-Mèche (tier SS) au seul motif qu'il
+       * apprend Rafale Feu — 150 de puissance, mais un tour de rechargement. */
+      const flags = move.flags || {};
+      if (flags.recharge) continue;      // Rafale Feu, Ultralaser
+      if (flags.charge) continue;        // Lance-Soleil, Piqué
+      if (move.selfdestruct) continue;   // Explosion, Destruction
+
+      /* Puissance effective = puissance de base pondérée par la précision.
+       * Exploforce (120 pour 70 % de précision) vaut moins qu'une capacité de
+       * 100 toujours au but. */
+      const accuracy = move.accuracy === true ? 100 : move.accuracy;
+      const effective = Math.round(move.basePower * (accuracy / 100));
+
+      damaging.push({
+        id: moveSlug(move.name),
+        name: move.name,
+        type: move.type.toLowerCase(),
+        category: move.category === 'Physical' ? 'phy' : 'spe',
+        power: effective,
+        basePower: move.basePower
+      });
+    }
+
+    const stabCandidates = damaging.filter(
+      (m) => stabTypes.includes(m.type.charAt(0).toUpperCase() + m.type.slice(1)) &&
+             (m.category === 'phy') === physical
+    );
+    const stabPower = stabCandidates.reduce((max, m) => Math.max(max, m.power), 0);
+    if (!stabPower) stats.sansStab += 1;
+
+    /* La couverture se calcule dans la catégorie offensive dominante :
+     * des capacités spéciales n'aident pas un attaquant physique. */
+    const usable = damaging.filter(
+      (m) => m.power >= MIN_POWER_FOR_COVERAGE && (m.category === 'phy') === physical
+    );
+    const coverage = bestCoverage(usable, chart, allTypes);
+
+    const keyMoves = [];
+    const bestStab = stabCandidates.sort((a, b) => b.power - a.power)[0];
+    if (bestStab) keyMoves.push(bestStab);
+    for (const m of coverage.moves) {
+      if (!keyMoves.some((k) => k.id === m.id)) keyMoves.push(m);
+    }
+
+    for (const m of keyMoves) {
+      if (!dictionary[m.id]) {
+          dictionary[m.id] = [frNames.get(m.id) || m.name, m.type, m.category, m.basePower];
+      }
+    }
+
+    byPokemon[slug] = [stabPower, physical ? 'phy' : 'spe', coverage.count,
+                       keyMoves.slice(0, 5).map((m) => m.id)];
+    stats.traites += 1;
+  }
+
+  const meta = {
+    generation: GEN,
+    provenance: 'vérifié — listes d’apprentissage @pkmn/dex, noms français PokéAPI',
+    source: `@pkmn/dex@${VERSIONS['@pkmn/dex']} (learnsets Génération ${GEN}) ` +
+      '+ PokéAPI GraphQL (movename, language: fr)',
+    generatedAt: new Date().toISOString().slice(0, 10),
+    regenerate: 'npm run build:moves',
+    count: Object.keys(byPokemon).length,
+    schema: {
+      byPokemon: '[puissanceStab, categorieOffensive, couverture, [capacitesCles]]',
+      moves: '[nomFrancais, type, categorie, puissance]'
+    },
+    methode:
+      `Puissance STAB : meilleure puissance EFFECTIVE (puissance de base × ` +
+      `précision) parmi les capacités du type du Pokémon, dans sa catégorie ` +
+      `offensive dominante. Couverture : nombre de types frappés au moins ×2 ` +
+      `par ses ${MOVE_SLOTS} meilleures capacités (puissance effective ` +
+      `≥ ${MIN_POWER_FOR_COVERAGE}), sélection gloutonne déterministe. ` +
+      `Sont écartées les capacités à rechargement, à charge et sacrificielles : ` +
+      `leur puissance affichée ne correspond à aucun usage réel.`,
+    limites:
+      'Seules les capacités APPRENABLES sont considérées, pas celles réellement ' +
+      'équipées : l’outil mesure un potentiel, pas le set d’un Pokémon donné.'
+  };
+
+  const js = `/*
+ * data/moves.js — Indicateurs de capacités par Pokémon.
+ * =====================================================
+ * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
+ *   Source    : ${meta.source}
+ *   Régénérer : npm run build:moves
+ *   Entrées   : ${Object.keys(byPokemon).length} Pokémon, ${Object.keys(dictionary).length} capacités
+ *
+ * byPokemon["<slug>"] = [puissanceStab, "phy"|"spe", couverture, [capacités]]
+ * moves["<capacite>"]  = [nomFrançais, type, "phy"|"spe", puissance]
+ */
+(function (root) {
+  'use strict';
+
+  root.POKESTATS_MOVES = {
+    meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
+    moves: ${JSON.stringify(dictionary)},
+    byPokemon: ${JSON.stringify(byPokemon)}
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+
+  await writeFile(join(DATA, 'moves.js'), js, 'utf8');
+  console.log(
+    `✔ data/moves.js         ${stats.traites} Pokémon, ` +
+    `${Object.keys(dictionary).length} capacités référencées`
+  );
+  console.log(
+    `    ${stats.sansCapacite} sans liste d'apprentissage, ` +
+    `${stats.sansStab} sans capacité STAB dans leur catégorie offensive`
+  );
+}
+
+/* ================================================================== */
 /* Auto-test (aucune dépendance réseau)                                */
 /* ================================================================== */
 
@@ -675,7 +946,7 @@ async function main() {
 
   if (!args.size) {
     console.log(
-      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--self-test]'
+      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--self-test]'
     );
     return;
   }
@@ -684,6 +955,7 @@ async function main() {
   if (all || args.has('--names')) await buildNames();
   if (all || args.has('--tiers')) await buildTiers();
   if (all || args.has('--types')) await buildTypes();
+  if (all || args.has('--moves')) await buildMoves();
 }
 
 main().catch((err) => { console.error(err); process.exitCode = 1; });
