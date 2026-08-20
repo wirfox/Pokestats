@@ -41,6 +41,8 @@
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\u0153/g, 'oe')       // Nœunœuf → noeunoeuf
+      .replace(/\u00e6/g, 'ae')
       .replace(/\u2640/g, 'f')
       .replace(/\u2642/g, 'm')
       .replace(/[^a-z0-9]+/g, '');

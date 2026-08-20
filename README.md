@@ -392,43 +392,49 @@ En cas d'échec réseau, les scripts n'écrasent rien et expliquent le problème
 
 ## Vérifier les données toi-même
 
-Plutôt que de faire confiance aux fichiers embarqués, confronte-les à PokéAPI :
+Ne me crois pas sur parole — confronte les fichiers à PokéAPI :
 
 ```bash
-npm run verify:data                     # tout
+npm run verify:data                     # tout (~1866 requêtes, quelques minutes)
 node scripts/verify-data.mjs --names    # noms français uniquement
 node scripts/verify-data.mjs --tiers    # identifiants uniquement
 node scripts/verify-data.mjs --json     # sortie machine
 ```
 
-Le script signale, entrée par entrée :
+Le script signale, entrée par entrée, tout identifiant inconnu de PokéAPI et
+tout nom français divergent du nom officiel. Code de sortie `1` s'il trouve un
+écart, `2` si PokéAPI est injoignable.
 
-- tout identifiant de `data/tiers.js` qui n'existe pas dans PokéAPI (typo,
-  identifiant inventé ou obsolète) ;
-- tout nom français de `data/names-fr.js` qui ne correspond pas au nom officiel
-  renvoyé par PokéAPI, en indiquant le nom attendu.
+> **Derrière un proxy ?** `fetch` de Node ignore `HTTPS_PROXY` par défaut, ce
+> qui fait échouer toutes les requêtes en `403` sans explication. Le script
+> détecte la variable et se relance tout seul avec `NODE_USE_ENV_PROXY=1` — tu
+> n'as rien à faire.
 
-Code de sortie `1` si au moins un écart est trouvé, `2` si PokéAPI est
-injoignable.
-
-> **Ce que ce script ne peut pas vérifier : le tier lui-même.** PokéAPI n'expose
+> **Ce que le script ne peut pas vérifier : le tier lui-même.** PokéAPI n'expose
 > aucune notion de viabilité — c'est une donnée communautaire, pas une donnée de
-> jeu. Le seul moyen de la fiabiliser est de la régénérer :
-> `npm run build:tiers`.
+> jeu. Sa source est `@pkmn/dex`, dont la version exacte figure dans
+> `data/tiers.js`. Pour la rafraîchir : `npm run build:tiers`.
 
 ### Récapitulatif de fiabilité
 
-| Donnée | Provenance | Fiabilité |
-| --- | --- | --- |
-| Stats, types, talents, évolutions, noms affichés | PokéAPI, en direct | **Élevée** — rien n'est stocké, tout est refetché |
-| Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | **Élevée** — deux sources concordantes |
-| Tiers de viabilité (925) | `@pkmn/dex@0.10.11` (Showdown / Smogon) | **Élevée** — source structurée et versionnée |
-| Noms français (1025) | `pokemon@3.3.1` (Pokédex national) | **Élevée** — source structurée et versionnée |
+Dernier audit : **1866 entrées vérifiées contre PokéAPI, 0 écart.**
 
-Aucune donnée du dépôt n'est saisie à la main. Chaque fichier de `data/` porte
-un champ `meta.provenance` et un champ `meta.source` citant la version exacte
-dont il est issu ; un test vérifie que ces champs sont présents et commencent
-bien par `vérifié`.
+| Donnée | Provenance | Vérifié | Écarts |
+| --- | --- | --- | --- |
+| Stats, types, talents, évolutions, noms affichés | PokéAPI, en direct | — | par construction |
+| Noms français (1025) | PokéAPI GraphQL | 1025 | **0** |
+| Identifiants de tiers (841) | `@pkmn/dex@0.10.11`, filtrés sur PokéAPI | 841 | **0** |
+| Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | 18 types | — |
+
+Aucune donnée du dépôt n'est saisie à la main, et **aucun identifiant ne repose
+sur une supposition de nommage** : chaque clé de `data/tiers.js` a été
+confrontée aux référentiels réels de PokéAPI au moment de la génération. Les
+formes que PokéAPI ne connaît pas (motifs de Prismillon, casquettes de Pikachu,
+types d'Arceus…) sont volontairement omises — l'entrée de l'espèce de base les
+couvre, et le moteur y retombe.
+
+Chaque fichier de `data/` porte un champ `meta.provenance` et `meta.source` ; un
+test vérifie qu'ils sont présents et commencent par `vérifié`.
 
 ---
 

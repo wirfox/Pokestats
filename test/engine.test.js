@@ -685,8 +685,13 @@ test('les données embarquées déclarent une provenance vérifiable', function 
   [['tiers.js', tiers], ['names-fr.js', names]].forEach(function (pair) {
     assert.ok(/^vérifié/.test(pair[1].provenance),
       pair[0] + ' doit déclarer une provenance vérifiée, pas « saisi de mémoire »');
-    assert.ok(/@?[\w@/-]+@\d+\.\d+\.\d+/.test(pair[1].source),
-      pair[0] + ' doit citer la version exacte de sa source : ' + pair[1].source);
+
+    /* Une source acceptable est soit un paquet épinglé (version exacte), soit
+     * PokéAPI — qui est une API vivante et n'a donc pas de numéro de version. */
+    var pinnedPackage = /@?[\w@/-]+@\d+\.\d+\.\d+/.test(pair[1].source);
+    var pokeApi = /Pok[ée]API/i.test(pair[1].source);
+    assert.ok(pinnedPackage || pokeApi,
+      pair[0] + ' doit citer une source traçable : ' + pair[1].source);
   });
 });
 

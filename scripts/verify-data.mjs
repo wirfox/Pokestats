@@ -45,11 +45,31 @@
  */
 
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = join(ROOT, 'data');
 const BASE = 'https://pokeapi.co/api/v2';
+
+/*
+ * `fetch` de Node ignore HTTPS_PROXY par défaut : derrière un proxy
+ * d'entreprise ou de bac à sable, toutes les requêtes échouent en 403 sans
+ * explication. NODE_USE_ENV_PROXY=1 active la prise en compte des variables
+ * d'environnement — on relance le processus avec, une seule fois.
+ *
+ * Sans proxy configuré (le cas normal sur une machine personnelle), rien ne
+ * se passe : la variable n'est pas posée et le script s'exécute directement.
+ */
+const PROXY = process.env.HTTPS_PROXY || process.env.https_proxy;
+if (PROXY && !process.env.NODE_USE_ENV_PROXY) {
+  const result = spawnSync(
+    process.execPath,
+    [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+    { stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' } }
+  );
+  process.exit(result.status === null ? 1 : result.status);
+}
 
 const CONCURRENCY = 6;
 
@@ -60,6 +80,8 @@ function normalize(value) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0153/g, 'oe')
+    .replace(/\u00e6/g, 'ae')
     .replace(/\u2640/g, 'f')
     .replace(/\u2642/g, 'm')
     .replace(/[^a-z0-9]+/g, '');

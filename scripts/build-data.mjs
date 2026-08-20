@@ -75,6 +75,8 @@ export function toPokeApiSlug(name) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     /* PokéAPI encode le genre de Nidoran par un suffixe : nidoran-f / nidoran-m. */
+    .replace(/\u0153/g, 'oe')
+    .replace(/\u00e6/g, 'ae')
     .replace(/\u2640/g, '-f')
     .replace(/\u2642/g, '-m')
     .replace(/['’.:]/g, '')
@@ -83,31 +85,65 @@ export function toPokeApiSlug(name) {
     .replace(/^-|-$/g, '');
 }
 
+const POKEAPI_REST = 'https://pokeapi.co/api/v2';
+const POKEAPI_GRAPHQL = 'https://graphql.pokeapi.co/v1beta2';
+
 /**
- * Divergences connues entre l'appellation Pokémon Showdown et celle de PokéAPI.
- * Chaque paire a été retenue parce que les deux projets nomment la même forme
- * différemment ; on émet les DEUX clés, ce qui est sans risque (une clé jamais
- * consultée ne coûte rien) et augmente le taux de correspondance.
+ * Récupère les deux référentiels d'identifiants de PokéAPI, en une requête
+ * chacun. La distinction est essentielle :
+ *
+ *   /pokemon          ~1351 FORMES de combat (lycanroc-midday, urshifu-single-strike)
+ *   /pokemon-species  ~1025 ESPÈCES         (lycanroc, urshifu)
+ *
+ * Beaucoup d'espèces n'ont aucune forme portant leur nom nu : la forme par
+ * défaut de Lougaroc s'appelle « lycanroc-midday », jamais « lycanroc ».
+ * Valider une espèce contre la liste des formes la rejetterait à tort — et
+ * ferait perdre des Pokémon majeurs (Démétéros, Shifours, Superdofin…).
+ *
+ * Le moteur consulte d'abord l'identifiant de forme, puis celui de l'espèce :
+ * une entrée au niveau de l'espèce couvre donc toutes ses formes.
  */
-const POKEAPI_ALIASES = {
-  'calyrex-ice': 'calyrex-ice-rider',
-  'calyrex-shadow': 'calyrex-shadow-rider',
-  'necrozma-dusk-mane': 'necrozma-dusk',
-  'necrozma-dawn-wings': 'necrozma-dawn',
-  'indeedee-f': 'indeedee-female',
-  'basculegion-f': 'basculegion-female',
-  'meowstic-f': 'meowstic-female',
-  'oinkologne-f': 'oinkologne-female',
-  'ogerpon-wellspring': 'ogerpon-wellspring-mask',
-  'ogerpon-hearthflame': 'ogerpon-hearthflame-mask',
-  'ogerpon-cornerstone': 'ogerpon-cornerstone-mask',
-  'tauros-paldea-combat': 'tauros-paldea-combat-breed',
-  'tauros-paldea-blaze': 'tauros-paldea-blaze-breed',
-  'tauros-paldea-aqua': 'tauros-paldea-aqua-breed',
-  'zygarde-10%': 'zygarde-10',
-  'mimikyu-busted': 'mimikyu-busted',
-  'urshifu-rapid-strike': 'urshifu-rapid-strike'
-};
+async function fetchReferences() {
+  async function list(endpoint) {
+    const res = await fetch(`${POKEAPI_REST}/${endpoint}?limit=100000`);
+    if (!res.ok) throw new Error(`PokéAPI /${endpoint} → HTTP ${res.status}`);
+    const data = await res.json();
+    return new Set((data.results || []).map((r) => r.name));
+  }
+  const [formes, especes] = await Promise.all([list('pokemon'), list('pokemon-species')]);
+  return { formes, especes };
+}
+
+/**
+ * Transformations à essayer pour faire correspondre une forme Pokémon Showdown
+ * à son identifiant PokéAPI. Les deux projets ne nomment pas les formes de la
+ * même façon, et aucune règle unique ne couvre tous les cas.
+ *
+ * Chaque candidat est ensuite CONFRONTÉ à la liste réelle de PokéAPI : rien
+ * n'est retenu sur la foi d'une supposition. Si aucun candidat n'existe, la
+ * forme est simplement ignorée — l'entrée de l'espèce de base fournit alors le
+ * tier, et le moteur la trouve par son repli habituel.
+ */
+const FORME_CANDIDATES = [
+  (slug) => slug,                                        // Lycanroc-Dusk, Calyrex-Ice
+  (slug) => slug.replace(/-f$/, '-female'),              // Indeedee-F
+  (slug) => slug.replace(/-m$/, '-male'),
+  (slug) => `${slug}-mask`,                              // Ogerpon-Wellspring
+  (slug) => `${slug}-breed`,                             // Tauros-Paldea-Combat
+  (slug) => slug.replace(/-(mane|wings)$/, ''),          // Necrozma-Dusk-Mane
+  (slug) => slug.replace(/-four$/, '-family-of-four'),   // Maushold-Four
+  (slug) => slug.replace(/-three$/, '-family-of-three')
+];
+
+/** Premier candidat réellement présent dans PokéAPI, sinon `null`. */
+export function resolveFormeSlug(showdownName, validSlugs) {
+  const base = toPokeApiSlug(showdownName);
+  for (const transform of FORME_CANDIDATES) {
+    const candidate = transform(base);
+    if (candidate && validSlugs.has(candidate)) return candidate;
+  }
+  return null;
+}
 
 /* ================================================================== */
 /* Échelle de viabilité                                                */
@@ -160,22 +196,68 @@ export function mapSmogonTier(raw) {
 /* Génération : noms français                                          */
 /* ================================================================== */
 
+/**
+ * Noms français depuis PokéAPI, en une seule requête GraphQL.
+ *
+ * C'est la source que l'application AFFICHE à l'écran. Générer l'index depuis
+ * elle rend toute divergence impossible par construction — alors qu'un
+ * référentiel tiers, même excellent, peut diverger sur des détails
+ * d'orthographe (ligatures, « Pomdepic » contre « Pomdepik »…).
+ */
+async function fetchFrenchNamesFromPokeApi() {
+  const query =
+    'query { pokemonspeciesname(where: {language: {name: {_eq: "fr"}}}) ' +
+    '{ name pokemonspecy { name } } }';
+  const res = await fetch(POKEAPI_GRAPHQL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  if (!res.ok) throw new Error(`GraphQL PokéAPI → HTTP ${res.status}`);
+  const payload = await res.json();
+  if (payload.errors) throw new Error('GraphQL PokéAPI a renvoyé une erreur');
+  const rows = (payload.data?.pokemonspeciesname || [])
+    .map((r) => [r.name, r.pokemonspecy?.name])
+    .filter(([fr, slug]) => fr && slug);
+  if (!rows.length) throw new Error('GraphQL PokéAPI : réponse vide');
+  return rows;
+}
+
 async function buildNames() {
   const seed = {};
   const rows = [];
+  let provenance;
+  let source;
 
-  for (let i = 0; i < FR_NAMES.length; i++) {
-    const frName = FR_NAMES[i];
-    const enName = EN_NAMES[i];
-    if (!frName || !enName) continue;
-    const slug = toPokeApiSlug(enName);
-    seed[frName] = slug;
-    rows.push([frName, slug, enName]);
+  try {
+    console.log('  → récupération des noms français depuis PokéAPI…');
+    const fetched = await fetchFrenchNamesFromPokeApi();
+    fetched.sort((a, b) => a[1].localeCompare(b[1]));
+    for (const [frName, slug] of fetched) {
+      seed[frName] = slug;
+      rows.push([frName, slug, slug]);
+    }
+    provenance = 'vérifié — généré depuis PokéAPI (source affichée par l’application)';
+    source = 'PokéAPI GraphQL — pokemonspeciesname (language: fr)';
+  } catch (err) {
+    /* Repli hors ligne : le paquet npm reste une très bonne source, à deux
+     * détails d'orthographe près relevés par npm run verify:data. */
+    console.log(`    (PokéAPI indisponible : ${err.message} — repli sur le paquet « pokemon »)`);
+    for (let i = 0; i < FR_NAMES.length; i++) {
+      const frName = FR_NAMES[i];
+      const enName = EN_NAMES[i];
+      if (!frName || !enName) continue;
+      const slug = toPokeApiSlug(enName);
+      seed[frName] = slug;
+      rows.push([frName, slug, enName]);
+    }
+    provenance = 'repli — généré depuis le paquet npm « pokemon »';
+    source = `pokemon@${VERSIONS.pokemon} (data/fr.json)`;
   }
 
   const meta = {
-    provenance: 'vérifié — généré depuis le paquet npm « pokemon »',
-    source: `pokemon@${VERSIONS.pokemon} (data/fr.json, adossé au Pokédex national)`,
+    provenance,
+    source,
     generatedAt: new Date().toISOString().slice(0, 10),
     regenerate: 'npm run build:names',
     count: rows.length,
@@ -194,7 +276,7 @@ async function buildNames() {
  * data/names-fr.js — Index « nom français → identifiant PokéAPI ».
  * ================================================================
  * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
- *   Source      : pokemon@${VERSIONS.pokemon} (paquet npm, data/fr.json)
+ *   Source      : ${source}
  *   Régénérer   : npm run build:names
  *   Entrées     : ${rows.length}
  *
@@ -222,7 +304,7 @@ ${body}
     JSON.stringify({ meta, seed }, null, 2) + '\n',
     'utf8'
   );
-  console.log(`✔ data/names-fr.js      ${rows.length} noms français (pokemon@${VERSIONS.pokemon})`);
+  console.log(`✔ data/names-fr.js      ${rows.length} noms français — ${source}`);
 }
 
 /* ================================================================== */
@@ -230,8 +312,12 @@ ${body}
 /* ================================================================== */
 
 async function buildTiers() {
+  console.log('  → récupération des référentiels PokéAPI…');
+  const { formes, especes } = await fetchReferences();
+  console.log(`    ${formes.size} formes et ${especes.size} espèces connues de PokéAPI`);
+
   const entries = {};
-  const stats = { retenus: 0, exclus: 0, formes: 0 };
+  const stats = { retenus: 0, exclus: 0, formes: 0, formesIgnorees: 0, baseIntrouvable: 0 };
 
   /* Nom anglais officiel par numéro de Pokédex : c'est lui qui donne
    * l'identifiant d'espèce PokéAPI, et non le nom de forme Showdown. */
@@ -245,19 +331,23 @@ async function buildTiers() {
     const isBaseForme = !species.forme;
 
     if (isBaseForme) {
-      /* Espèce de base : l'identifiant PokéAPI dérive du nom anglais du
-       * Pokédex national. C'est la clé de repli utilisée par le moteur
-       * lorsqu'une forme précise n'a pas d'entrée. */
+      /* Espèce de base : l'identifiant dérive du nom anglais du Pokédex
+       * national. C'est la clé de repli du moteur quand une forme précise
+       * n'a pas d'entrée propre. */
       const enName = enByNum.get(species.num) || species.name;
-      entries[toPokeApiSlug(enName)] = [tier, 2];
+      const slug = toPokeApiSlug(enName);
+      /* Validation contre les ESPÈCES : c'est le niveau auquel le moteur
+       * retombe quand une forme précise n'a pas d'entrée. */
+      if (!especes.has(slug)) { stats.baseIntrouvable += 1; continue; }
+      entries[slug] = [tier, 2];
       stats.retenus += 1;
     } else {
-      /* Forme alternative : Showdown et PokéAPI la nomment presque toujours
-       * pareil ; on ajoute l'alias quand ce n'est pas le cas. */
-      const showdownSlug = toPokeApiSlug(species.name);
-      entries[showdownSlug] = [tier, 2];
-      const alias = POKEAPI_ALIASES[showdownSlug];
-      if (alias && alias !== showdownSlug) entries[alias] = [tier, 2];
+      /* Forme alternative : on ne retient QUE si PokéAPI connaît réellement
+       * l'identifiant. Sinon on l'ignore — l'espèce de base porte déjà le
+       * tier, et le moteur y retombe naturellement. */
+      const slug = resolveFormeSlug(species.name, formes);
+      if (!slug) { stats.formesIgnorees += 1; continue; }
+      entries[slug] = [tier, 2];
       stats.formes += 1;
       stats.retenus += 1;
     }
@@ -269,6 +359,10 @@ async function buildTiers() {
     provenance: 'vérifié — généré depuis le paquet npm « @pkmn/dex »',
     source: `@pkmn/dex@${VERSIONS['@pkmn/dex']} — placements de tiers Génération ${GEN} ` +
       '(données Pokémon Showdown, référence de Smogon)',
+    slugsVerifies:
+      'Chaque identifiant a été confronté à la liste des formes réellement ' +
+      'connues de PokéAPI au moment de la génération : aucune entrée ne repose ' +
+      'sur une supposition de nommage.',
     generatedAt: new Date().toISOString().slice(0, 10),
     regenerate: 'npm run build:tiers',
     count: Object.keys(entries).length,
@@ -332,9 +426,13 @@ ${body}
     'utf8'
   );
   console.log(
-    `✔ data/tiers.js         ${Object.keys(entries).length} entrées ` +
-    `(${stats.formes} formes alternatives, ${stats.exclus} exclues) ` +
-    `(@pkmn/dex@${VERSIONS['@pkmn/dex']})`
+    `✔ data/tiers.js         ${Object.keys(entries).length} entrées vérifiées ` +
+    `(${stats.formes} formes alternatives)`
+  );
+  console.log(
+    `    ${stats.exclus} exclues (CAP / Illegal), ` +
+    `${stats.formesIgnorees} formes sans équivalent PokéAPI ignorées, ` +
+    `${stats.baseIntrouvable} espèces introuvables`
   );
 }
 

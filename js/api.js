@@ -171,6 +171,8 @@
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')   // retire les accents
+      .replace(/\u0153/g, 'oe')          // Nœunœuf → noeunoeuf
+      .replace(/\u00e6/g, 'ae')
       .replace(/\u2640/g, '-f')          // Nidoran♀ → nidoran-f
       .replace(/\u2642/g, '-m')          // Nidoran♂ → nidoran-m
       .replace(/['’.:]/g, '')            // Farfetch'd, Mr. Mime…
