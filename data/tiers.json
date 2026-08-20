@@ -3,7 +3,9 @@
     "generation": 9,
     "games": "Pokémon Écarlate / Violet (+ DLC)",
     "snapshot": "2026-08",
-    "sources": [
+    "provenance": "non vérifié — connaissance générale, à régénérer",
+    "sourcesRecommandees": [
+      "Pokémon Showdown / Smogon — formats-data.json (utilisé par build:tiers)",
       "Smogon University — placements de tiers Génération 9 (SV)",
       "Game8 — Best Pokemon Tier List (Scarlet & Violet)",
       "RankedBoost — Pokemon Scarlet & Violet Tier List",
@@ -12,7 +14,7 @@
       "Pikalytics — usage VGC / Battle Stadium"
     ],
     "regenerate": "node scripts/build-data.mjs --tiers",
-    "warning": "Instantané curé de viabilité compétitive. Les entrées de confiance moyenne ne servent qu'à écarter une recommandation, jamais à la justifier. Un Pokémon absent de la table est traité comme « tier inconnu »."
+    "warning": "Instantané NON VÉRIFIÉ de viabilité compétitive : saisi de mémoire, pas extrait des sites de référence. Les entrées de confiance moyenne ne servent qu'à écarter une recommandation, jamais à la justifier. Un Pokémon absent de la table est traité comme « tier inconnu ». Lancer `npm run build:tiers` remplace cet instantané par des données vérifiables."
   },
   "scale": {
     "SS": {

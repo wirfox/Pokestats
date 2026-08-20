@@ -148,6 +148,8 @@ async function buildTiers() {
     generation: 9,
     games: 'Pokémon Écarlate / Violet (+ DLC)',
     snapshot: new Date().toISOString().slice(0, 7),
+    /* Ce fichier-ci a bien été extrait de la source ci-dessous. */
+    provenance: 'vérifié — extrait de play.pokemonshowdown.com/data/formats-data.json',
     sources: [
       'Pokémon Showdown / Smogon — formats-data.json (placements de tiers officiels)',
       'Recoupement manuel : Game8, RankedBoost, PropelRC, Rosenberry Rooms, Pikalytics'

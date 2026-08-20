@@ -130,12 +130,19 @@
     </p>
 
     <p class="fineprint">
-      Les statistiques de base, types, talents, chaînes d'évolution et la table
-      d'efficacité des types sont récupérés en direct depuis PokéAPI. Les tiers
-      de viabilité proviennent d'un instantané curé
-      (<code>data/tiers.js</code>) dont les sources et les limites sont
-      détaillées dans le <code>README.md</code>. Aucune donnée n'est inventée&nbsp;:
-      lorsqu'une information manque, l'outil le signale et s'abstient de conclure.
+      <strong>Fiabilité des données —</strong> les statistiques de base, types,
+      talents, chaînes d'évolution, noms officiels et la table d'efficacité des
+      types sont récupérés <em>en direct</em> depuis PokéAPI&nbsp;: rien n'est
+      stocké dans ce site, donc rien ne peut être périmé ou inventé.
+      En revanche, les <strong>tiers de viabilité</strong>
+      (<code>data/tiers.js</code>) sont un instantané saisi à la main, <em>non
+      extrait</em> des tier lists publiques citées&nbsp;: traite-les comme une
+      indication, pas comme une vérité. La commande
+      <code>npm run build:tiers</code> les régénère depuis une source
+      structurée, et <code>npm run verify:data</code> audite les données
+      embarquées contre PokéAPI. Détails et limites dans le
+      <code>README.md</code>. Lorsqu'une information manque, l'outil le signale
+      et s'abstient de conclure plutôt que de deviner.
     </p>
   </section>
 

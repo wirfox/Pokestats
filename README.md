@@ -18,6 +18,7 @@ actuels, et si son évolution justifie de l'entraîner.
 - [Sources de données](#sources-de-données)
 - [Comment la recommandation est calculée](#comment-la-recommandation-est-calculée)
 - [Mettre à jour les données](#mettre-à-jour-les-données)
+- [Vérifier les données toi-même](#vérifier-les-données-toi-même)
 - [Tests](#tests)
 - [Structure du projet](#structure-du-projet)
 - [Limites connues](#limites-connues)
@@ -181,26 +182,30 @@ L'asymétrie est volontaire : une donnée incertaine peut servir de garde-fou,
 jamais d'argument. Dans l'interface, un tier de confiance moyenne est signalé
 par le symbole `≈`.
 
-Sources de référence de cet instantané :
-
-- [Smogon University](https://www.smogon.com/) — placements de tiers Génération 9
-- [Game8 — Best Pokemon Tier List (SV)](https://game8.co/games/Pokemon-Scarlet-Violet/archives/397587)
-- [RankedBoost — Pokemon Scarlet & Violet Tier List](https://rankedboost.com/pokemon-scarlet-violet/best-pokemon-tier-list/)
-- PropelRC — Ultimate Pokemon Tier List
-- Rosenberry Rooms — Pokemon Tier List
-- [Pikalytics](https://www.pikalytics.com/) — usage réel en VGC / Battle Stadium
-
-> ⚠️ **À lire avant de faire confiance aux tiers.**
-> L'instantané livré dans ce dépôt n'a **pas** pu être généré automatiquement :
-> l'environnement de build n'avait pas d'accès réseau vers ces hôtes. C'est une
-> base de départ curée, à jour de la génération 9, mais elle n'a pas été validée
-> ligne à ligne contre les sources en ligne.
+> ### ⚠️ Provenance réelle de cet instantané — à lire
 >
-> Avant tout usage sérieux, régénère-la depuis une source structurée et
-> vérifiable&nbsp;:
+> **Ces 289 entrées n'ont été extraites d'aucun site.** Elles ont été saisies
+> à partir d'une connaissance générale des placements de viabilité Génération 9.
+> L'environnement dans lequel le projet a été écrit n'avait pas d'accès réseau
+> vers `game8.co`, `rankedboost.com`, `pikalytics.com` ni `smogon.com`.
+>
+> Le champ `meta.provenance` du fichier le dit explicitement :
+> `"non vérifié — connaissance générale, à régénérer"`.
+>
+> Les sites ci-dessous sont donc des références **recommandées pour recouper ou
+> régénérer** ces données — pas des sources dont elles proviennent :
+>
+> - [Smogon University](https://www.smogon.com/) — placements de tiers Génération 9
+> - [Game8 — Best Pokemon Tier List (SV)](https://game8.co/games/Pokemon-Scarlet-Violet/archives/397587)
+> - [RankedBoost — Pokemon Scarlet & Violet Tier List](https://rankedboost.com/pokemon-scarlet-violet/best-pokemon-tier-list/)
+> - PropelRC — Ultimate Pokemon Tier List
+> - Rosenberry Rooms — Pokemon Tier List
+> - [Pikalytics](https://www.pikalytics.com/) — usage réel en VGC / Battle Stadium
+>
+> **Avant tout usage sérieux**, régénère la table depuis une source structurée :
 >
 > ```bash
-> npm run build:tiers
+> npm run build:tiers     # Pokémon Showdown / Smogon, lisible par une machine
 > ```
 >
 > Les Pokémon qui disparaîtraient de la table à cette occasion deviennent
@@ -218,10 +223,25 @@ Sources de référence de cet instantané :
 3. La saisie brute comme identifiant — ce qui couvre nativement l'anglais
    (`rockruff`, `great-tusk`…).
 
-**Garde-fou :** le nom affiché à l'écran provient *toujours* de PokéAPI, jamais
-de cet index. Une entrée erronée serait donc immédiatement visible (le nom
-affiché ne correspondrait pas à ta saisie), et surtout : aucune analyse ne porte
-sur les noms — uniquement sur les données renvoyées par l'API.
+**Provenance :** comme la table de viabilité, ces 311 entrées ont été saisies de
+mémoire, pas extraites d'une source. Elles peuvent contenir des erreurs.
+
+**Deux garde-fous rendent ces erreurs bénignes :**
+
+1. Le nom affiché à l'écran provient *toujours* de PokéAPI, jamais de cet index.
+   Une traduction erronée serait donc immédiatement visible : le nom affiché ne
+   correspondrait pas à ce que tu as tapé.
+2. Aucune analyse ne porte sur les noms — uniquement sur les données renvoyées
+   par l'API. Une erreur de nom ne peut pas fausser une recommandation, seulement
+   te faire afficher le mauvais Pokémon.
+
+**Et tu peux les auditer en une commande :**
+
+```bash
+npm run verify:data
+```
+
+Voir la section [Vérifier les données toi-même](#vérifier-les-données-toi-même).
 
 ---
 
@@ -352,6 +372,44 @@ Correspondance appliquée :
 | Illegal / inconnu | *ignoré — jamais deviné* |
 
 En cas d'échec réseau, les scripts n'écrasent rien et expliquent le problème.
+
+---
+
+## Vérifier les données toi-même
+
+Plutôt que de faire confiance aux fichiers embarqués, confronte-les à PokéAPI :
+
+```bash
+npm run verify:data                     # tout
+node scripts/verify-data.mjs --names    # noms français uniquement
+node scripts/verify-data.mjs --tiers    # identifiants uniquement
+node scripts/verify-data.mjs --json     # sortie machine
+```
+
+Le script signale, entrée par entrée :
+
+- tout identifiant de `data/tiers.js` qui n'existe pas dans PokéAPI (typo,
+  identifiant inventé ou obsolète) ;
+- tout nom français de `data/names-fr.js` qui ne correspond pas au nom officiel
+  renvoyé par PokéAPI, en indiquant le nom attendu.
+
+Code de sortie `1` si au moins un écart est trouvé, `2` si PokéAPI est
+injoignable.
+
+> **Ce que ce script ne peut pas vérifier : le tier lui-même.** PokéAPI n'expose
+> aucune notion de viabilité — c'est une donnée communautaire, pas une donnée de
+> jeu. Le seul moyen de la fiabiliser est de la régénérer :
+> `npm run build:tiers`.
+
+### Récapitulatif de fiabilité
+
+| Donnée | Provenance | Fiabilité |
+| --- | --- | --- |
+| Stats, types, talents, évolutions, table des types | PokéAPI, en direct | **Élevée** — rien n'est stocké, tout est refetché |
+| Noms affichés à l'écran | PokéAPI, en direct | **Élevée** |
+| Identifiants de `names-fr.js` | Saisis de mémoire | Moyenne — auditables via `verify:data`, sans effet sur l'analyse |
+| Tiers de `tiers.js` | Saisis de mémoire | **Faible tant que `build:tiers` n'a pas tourné** |
+| Table des types de `test/` | Saisie de mémoire | Tests uniquement — jamais utilisée en production |
 
 ---
 

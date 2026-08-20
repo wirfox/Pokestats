@@ -10,8 +10,15 @@
     "build:tiers": "node scripts/build-data.mjs --tiers",
     "build:names": "node scripts/build-data.mjs --names",
     "export:json": "node scripts/build-data.mjs --export-json",
-    "serve": "npx --yes http-server . -p 8080 -c-1"
+    "serve": "npx --yes http-server . -p 8080 -c-1",
+    "verify:data": "node scripts/verify-data.mjs"
   },
-  "keywords": ["pokemon", "pokeapi", "tier-list", "scarlet-violet", "fan-tool"],
+  "keywords": [
+    "pokemon",
+    "pokeapi",
+    "tier-list",
+    "scarlet-violet",
+    "fan-tool"
+  ],
   "license": "MIT"
 }

@@ -392,8 +392,18 @@
       generation: 9,
       games: 'Pokémon Écarlate / Violet (+ DLC)',
       snapshot: '2026-08',
-      /* Sources de référence pour ce classement — voir README.md */
-      sources: [
+      /* ⚠️ HONNÊTETÉ SUR LA PROVENANCE
+       * Ces entrées n'ont PAS été extraites des sites ci-dessous : ils étaient
+       * injoignables depuis l'environnement de build. Elles reflètent une
+       * connaissance générale des placements de viabilité Génération 9, et
+       * doivent être considérées comme NON VÉRIFIÉES tant que
+       * `npm run build:tiers` n'a pas été lancé.
+       *
+       * Les sites listés sont donc des références RECOMMANDÉES pour recouper
+       * ou régénérer ces données — pas des sources dont elles proviennent. */
+      provenance: 'non vérifié — connaissance générale, à régénérer',
+      sourcesRecommandees: [
+        'Pokémon Showdown / Smogon — formats-data.json (utilisé par build:tiers)',
         'Smogon University — placements de tiers Génération 9 (SV)',
         'Game8 — Best Pokemon Tier List (Scarlet & Violet)',
         'RankedBoost — Pokemon Scarlet & Violet Tier List',
@@ -404,9 +414,11 @@
       regenerate: 'node scripts/build-data.mjs --tiers',
       /* Avertissement affiché tel quel dans l'interface. */
       warning:
-        "Instantané curé de viabilité compétitive. Les entrées de confiance " +
-        "moyenne ne servent qu'à écarter une recommandation, jamais à la justifier. " +
-        "Un Pokémon absent de la table est traité comme « tier inconnu »."
+        "Instantané NON VÉRIFIÉ de viabilité compétitive : saisi de mémoire, pas " +
+        "extrait des sites de référence. Les entrées de confiance moyenne ne servent " +
+        "qu'à écarter une recommandation, jamais à la justifier. Un Pokémon absent de " +
+        "la table est traité comme « tier inconnu ». Lancer `npm run build:tiers` " +
+        "remplace cet instantané par des données vérifiables."
     },
     scale: SCALE,
     entries: ENTRIES
