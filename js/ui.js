@@ -50,11 +50,28 @@
   /* Fragments réutilisables                                             */
   /* ------------------------------------------------------------------ */
 
+
+  /**
+   * Icône officielle d'un type (jeu Écarlate / Violet), rendue à l'intérieur
+   * de la pastille.
+   *
+   * L'image est décorative : le nom du type reste écrit à côté, donc `alt`
+   * est vide et une image qui ne charge pas ne retire aucune information.
+   * `onerror` la masque proprement plutôt que de laisser une icône cassée.
+   */
+  function typeIcon(name) {
+    var url = types.iconOf && types.iconOf(name);
+    if (!url) return '';
+    return '<img class="type-icon" src="' + escapeHtml(url) + '" alt="" ' +
+      'loading="lazy" width="16" height="16" ' +
+      'onerror="this.remove()">';
+  }
+
   function typeChips(typeList) {
     return (typeList || [])
       .map(function (t) {
         return '<span class="type-chip type-' + escapeHtml(t) + '">' +
-          escapeHtml(types.frType(t)) + '</span>';
+          typeIcon(t) + escapeHtml(types.frType(t)) + '</span>';
       })
       .join('');
   }

@@ -21,6 +21,7 @@
 
   var chart = null;      // chart[typeAttaquant][typeDefenseur] = multiplicateur
   var typeList = [];     // les 18 types de combat
+  var iconList = {};     // type → URL de l'icône officielle (Écarlate / Violet)
   var loading = null;
 
   /** Traductions françaises des types (affichage uniquement). */
@@ -49,6 +50,7 @@
     if (!table || !table.chart || !table.types) return false;
     chart = table.chart;
     typeList = table.types.slice();
+    if (table.icons) iconList = table.icons;
     source = 'repli-hors-ligne';
     return true;
   }
@@ -83,6 +85,16 @@
         names.forEach(function (attacker) {
           built[attacker] = Object.create(null);
           names.forEach(function (defender) { built[attacker][defender] = 1; });
+        });
+
+        /* Icônes officielles Écarlate / Violet. On prend `symbol_icon`
+         * (le glyphe seul) et non `name_icon`, qui contient le nom du type
+         * écrit en anglais. */
+        typeDocs.forEach(function (doc) {
+          var sv = doc.sprites &&
+            doc.sprites['generation-ix'] &&
+            doc.sprites['generation-ix']['scarlet-violet'];
+          if (sv && sv.symbol_icon) iconList[doc.name] = sv.symbol_icon;
         });
 
         /* Application des relations officielles. */
@@ -165,6 +177,8 @@
     weaknesses: weaknesses,
     resistances: resistances,
     frType: frType,
+    /** URL de l'icône officielle d'un type, ou null si indisponible. */
+    iconOf: function (name) { return iconList[name] || null; },
     allTypes: function () { return typeList.slice(); },
     /* Injection directe — utilisé uniquement par les tests hors navigateur. */
     _setChart: function (c, names) { chart = c; typeList = names; source = 'test'; }

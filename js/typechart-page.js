@@ -63,9 +63,26 @@
     return 'cell-4';
   }
 
+
+  /**
+   * Icône officielle d'un type (jeu Écarlate / Violet), rendue à l'intérieur
+   * de la pastille.
+   *
+   * L'image est décorative : le nom du type reste écrit à côté, donc `alt`
+   * est vide et une image qui ne charge pas ne retire aucune information.
+   * `onerror` la masque proprement plutôt que de laisser une icône cassée.
+   */
+  function typeIcon(name) {
+    var url = types.iconOf && types.iconOf(name);
+    if (!url) return '';
+    return '<img class="type-icon" src="' + escapeHtml(url) + '" alt="" ' +
+      'loading="lazy" width="16" height="16" ' +
+      'onerror="this.remove()">';
+  }
+
   function typeChip(name, extra) {
     return '<span class="type-chip type-' + escapeHtml(name) + (extra || '') + '">' +
-      escapeHtml(types.frType(name)) + '</span>';
+      typeIcon(name) + escapeHtml(types.frType(name)) + '</span>';
   }
 
   /* ------------------------------------------------------------------ */
@@ -78,7 +95,7 @@
       return '<button type="button" class="type-chip type-' + escapeHtml(t) +
         ' type-button' + (active ? ' is-selected' : '') + '" data-type="' +
         escapeHtml(t) + '" aria-pressed="' + active + '">' +
-        escapeHtml(types.frType(t)) + '</button>';
+        typeIcon(t) + escapeHtml(types.frType(t)) + '</button>';
     }).join('');
   }
 
@@ -251,16 +268,16 @@
       '<span class="grid-corner-def">déf.</span>' +
       '</th>' +
       all.map(function (d) {
-        return '<th scope="col" class="grid-head type-' + escapeHtml(d) + '" ' +
+        return '<th scope="col" class="grid-head grid-head-col type-' + escapeHtml(d) + '" ' +
           'title="' + escapeHtml(types.frType(d)) + ' en défense">' +
-          escapeHtml(types.frType(d).slice(0, 3)) + '</th>';
+          (typeIcon(d) || escapeHtml(types.frType(d).slice(0, 3))) + '</th>';
       }).join('') + '</tr></thead>';
 
     var body = '<tbody>' + all.map(function (a) {
       return '<tr>' +
         '<th scope="row" class="grid-head type-' + escapeHtml(a) + '" ' +
           'title="' + escapeHtml(types.frType(a)) + ' en attaque">' +
-          escapeHtml(types.frType(a)) + '</th>' +
+          typeIcon(a) + escapeHtml(types.frType(a)) + '</th>' +
         all.map(function (d) {
           var v = types.effectiveness(a, [d]);
           return '<td class="cell ' + classForMultiplier(v) + '" title="' +

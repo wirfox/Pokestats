@@ -1241,3 +1241,31 @@ code {
   border-radius: 3px;
   display: inline-block;
 }
+
+/* ------------------------------------------------------------------ */
+/* Icônes officielles des types (Écarlate / Violet)                    */
+/* ------------------------------------------------------------------ */
+
+.type-chip { display: inline-flex; align-items: center; gap: 5px; }
+
+.type-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border-radius: 50%;
+  /* L'icône porte déjà le fond coloré du type : un léger halo la détache
+     de la pastille sans la faire jurer. */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28);
+  vertical-align: middle;
+}
+
+.type-button .type-icon { width: 17px; height: 17px; }
+
+/* Table complète : icône seule en en-tête de colonne, nom en infobulle. */
+.type-grid .grid-head-col { writing-mode: horizontal-tb; padding: 5px 3px; }
+.type-grid .grid-head-col .type-icon {
+  width: 19px; height: 19px;
+  box-shadow: none;
+}
+.type-grid tbody .grid-head { display: table-cell; }
+.type-grid tbody .grid-head .type-icon { margin-right: 4px; }

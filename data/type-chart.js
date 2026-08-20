@@ -21,10 +21,31 @@
       "source": "@pkmn/dex@0.10.11 — relations de dégâts Génération 9",
       "generatedAt": "2026-08-20",
       "regenerate": "npm run build:types",
+      "icons": "Icônes officielles Écarlate / Violet (symbol_icon), servies par PokéAPI",
       "role": "Repli hors ligne. L'application construit d'abord la table depuis PokéAPI (/type/{nom} → damage_relations) ; ce fichier ne sert que si PokéAPI est injoignable, pour que l'analyse reste possible au lieu d'être bloquée.",
       "note": "Le type Stellar (mécanique Téracristal) est exclu : ce n'est pas un type défensif."
     },
     types: ["bug","dark","dragon","electric","fairy","fighting","fire","flying","ghost","grass","ground","ice","normal","poison","psychic","rock","steel","water"],
+    icons: {
+      "bug": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/7.png",
+      "dark": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/17.png",
+      "dragon": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/16.png",
+      "electric": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/13.png",
+      "fairy": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/18.png",
+      "fighting": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/2.png",
+      "fire": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/10.png",
+      "flying": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/3.png",
+      "ghost": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/8.png",
+      "grass": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/12.png",
+      "ground": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/5.png",
+      "ice": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/15.png",
+      "normal": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/1.png",
+      "poison": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/4.png",
+      "psychic": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/14.png",
+      "rock": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/6.png",
+      "steel": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/9.png",
+      "water": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/small/11.png"
+    },
     chart: {
       "bug": {
         "bug": 1,

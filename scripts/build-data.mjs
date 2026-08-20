@@ -47,6 +47,22 @@ import { createRequire } from 'node:module';
 import { Dex } from '@pkmn/dex';
 
 const require = createRequire(import.meta.url);
+
+/*
+ * `fetch` de Node ignore HTTPS_PROXY par défaut. Derrière un proxy, les appels
+ * PokéAPI échouent alors sans explication. On relance le processus une fois
+ * avec la prise en charge activée ; sans proxy configuré, rien ne se passe.
+ */
+const PROXY = process.env.HTTPS_PROXY || process.env.https_proxy;
+if (PROXY && !process.env.NODE_USE_ENV_PROXY) {
+  const { spawnSync } = await import('node:child_process');
+  const result = spawnSync(
+    process.execPath,
+    [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+    { stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' } }
+  );
+  process.exit(result.status === null ? 1 : result.status);
+}
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = join(ROOT, 'data');
 const TEST = join(ROOT, 'test');
@@ -539,8 +555,46 @@ function buildTypeChartData() {
   return { types: types.map((t) => t.toLowerCase()), chart };
 }
 
+/**
+ * Icônes officielles des types, jeu Écarlate / Violet.
+ *
+ * On retient `symbol_icon` et non `name_icon` : le premier est le glyphe seul,
+ * le second contient le nom du type écrit en anglais — inutilisable à côté
+ * d'un libellé français.
+ *
+ * Best-effort : sans réseau, le fichier est généré sans icônes et l'interface
+ * se rabat sur le texte seul.
+ */
+async function fetchTypeIcons(typeNames) {
+  const icons = {};
+  const echecs = [];
+  for (const name of typeNames) {
+    try {
+      const res = await fetch(`${POKEAPI_REST}/type/${name}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const doc = await res.json();
+      const sv = doc.sprites?.['generation-ix']?.['scarlet-violet'];
+      if (sv && sv.symbol_icon) icons[name] = sv.symbol_icon;
+      else echecs.push(`${name} (pas d'icône)`);
+    } catch (err) {
+      /* Un type sans icône n'empêche rien — l'affichage reste textuel — mais
+       * on le SIGNALE : un catch muet avait déjà masqué une faute de frappe
+       * dans un nom de fonction, et les 18 icônes manquaient en silence. */
+      echecs.push(`${name} (${err.message})`);
+    }
+  }
+  if (echecs.length) {
+    console.log(`    ⚠ ${echecs.length} échec(s) : ${echecs.slice(0, 4).join(', ')}`);
+  }
+  return icons;
+}
+
 async function buildTypes() {
   const { types, chart } = buildTypeChartData();
+
+  console.log('  → icônes de types depuis PokéAPI…');
+  const icons = await fetchTypeIcons(types);
+  console.log(`    ${Object.keys(icons).length}/${types.length} icônes récupérées`);
 
   const meta = {
     generation: GEN,
@@ -548,6 +602,7 @@ async function buildTypes() {
     source: `@pkmn/dex@${VERSIONS['@pkmn/dex']} — relations de dégâts Génération ${GEN}`,
     generatedAt: new Date().toISOString().slice(0, 10),
     regenerate: 'npm run build:types',
+    icons: 'Icônes officielles Écarlate / Violet (symbol_icon), servies par PokéAPI',
     role:
       "Repli hors ligne. L'application construit d'abord la table depuis PokéAPI " +
       "(/type/{nom} → damage_relations) ; ce fichier ne sert que si PokéAPI est " +
@@ -574,6 +629,7 @@ async function buildTypes() {
   root.POKESTATS_TYPE_CHART = {
     meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
     types: ${JSON.stringify(types)},
+    icons: ${JSON.stringify(icons, null, 2).split('\n').join('\n    ')},
     chart: ${JSON.stringify(chart, null, 2).split('\n').join('\n    ')}
   };
 })(typeof window !== 'undefined' ? window : globalThis);
