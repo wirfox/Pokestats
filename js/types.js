@@ -36,13 +36,34 @@
     return FR_TYPES[name] || name;
   }
 
+  /** Provenance de la table effectivement en usage. */
+  var source = null;   // 'pokeapi' | 'repli-hors-ligne'
+
+  /**
+   * Repli hors ligne : table vérifiée, générée depuis @pkmn/dex
+   * (voir data/type-chart.js). Sans elle, une panne de PokéAPI bloquerait
+   * toute l'analyse de couverture ; avec elle, l'outil reste utilisable.
+   */
+  function loadFallback() {
+    var table = root.POKESTATS_TYPE_CHART;
+    if (!table || !table.chart || !table.types) return false;
+    chart = table.chart;
+    typeList = table.types.slice();
+    source = 'repli-hors-ligne';
+    return true;
+  }
+
   /**
    * Charge la table d'efficacité. Idempotent : les appels suivants
    * réutilisent la même promesse.
-   * @returns {Promise<{chart: Object, types: string[]}>}
+   *
+   * PokéAPI est la source prioritaire (toujours à jour). En cas d'échec, on
+   * bascule sur le repli embarqué plutôt que de renoncer à analyser.
+   *
+   * @returns {Promise<{chart: Object, types: string[], source: string}>}
    */
   function load() {
-    if (chart) return Promise.resolve({ chart: chart, types: typeList });
+    if (chart) return Promise.resolve({ chart: chart, types: typeList, source: source });
     if (loading) return loading;
 
     loading = api
@@ -80,10 +101,14 @@
 
         chart = built;
         typeList = names;
-        return { chart: chart, types: typeList };
+        source = 'pokeapi';
+        return { chart: chart, types: typeList, source: source };
       })
       .catch(function (err) {
-        loading = null;   // permet une nouvelle tentative
+        loading = null;   // permet une nouvelle tentative auprès de PokéAPI
+        if (loadFallback()) {
+          return { chart: chart, types: typeList, source: source, apiError: err };
+        }
         throw err;
       });
 
@@ -134,6 +159,7 @@
   PokeStats.types = {
     load: load,
     isLoaded: isLoaded,
+    source: function () { return source; },
     effectiveness: effectiveness,
     defensiveProfile: defensiveProfile,
     weaknesses: weaknesses,
@@ -141,6 +167,6 @@
     frType: frType,
     allTypes: function () { return typeList.slice(); },
     /* Injection directe — utilisé uniquement par les tests hors navigateur. */
-    _setChart: function (c, names) { chart = c; typeList = names; }
+    _setChart: function (c, names) { chart = c; typeList = names; source = 'test'; }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

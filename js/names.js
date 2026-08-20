@@ -28,13 +28,21 @@
   var labels = [];
   var indexSource = 'aucun';
 
-  /** Normalise pour la comparaison : minuscules, sans accents ni ponctuation. */
+  /**
+   * Normalise pour la comparaison : minuscules, sans accents ni ponctuation.
+   *
+   * Les symboles de genre sont convertis AVANT d'être retirés, sans quoi
+   * Nidoran♀ et Nidoran♂ produiraient la même clé et l'un des deux deviendrait
+   * inatteignable.
+   */
   function normalize(value) {
     return String(value == null ? '' : value)
       .trim()
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\u2640/g, 'f')
+      .replace(/\u2642/g, 'm')
       .replace(/[^a-z0-9]+/g, '');
   }
 

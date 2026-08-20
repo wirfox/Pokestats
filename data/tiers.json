@@ -2,19 +2,35 @@
   "meta": {
     "generation": 9,
     "games": "Pokémon Écarlate / Violet (+ DLC)",
-    "snapshot": "2026-08",
-    "provenance": "non vérifié — connaissance générale, à régénérer",
-    "sourcesRecommandees": [
-      "Pokémon Showdown / Smogon — formats-data.json (utilisé par build:tiers)",
-      "Smogon University — placements de tiers Génération 9 (SV)",
-      "Game8 — Best Pokemon Tier List (Scarlet & Violet)",
-      "RankedBoost — Pokemon Scarlet & Violet Tier List",
-      "PropelRC — Ultimate Pokemon Tier List",
-      "Rosenberry Rooms — Pokemon Tier List",
-      "Pikalytics — usage VGC / Battle Stadium"
-    ],
-    "regenerate": "node scripts/build-data.mjs --tiers",
-    "warning": "Instantané NON VÉRIFIÉ de viabilité compétitive : saisi de mémoire, pas extrait des sites de référence. Les entrées de confiance moyenne ne servent qu'à écarter une recommandation, jamais à la justifier. Un Pokémon absent de la table est traité comme « tier inconnu ». Lancer `npm run build:tiers` remplace cet instantané par des données vérifiables."
+    "provenance": "vérifié — généré depuis le paquet npm « @pkmn/dex »",
+    "source": "@pkmn/dex@0.10.11 — placements de tiers Génération 9 (données Pokémon Showdown, référence de Smogon)",
+    "generatedAt": "2026-08-20",
+    "regenerate": "npm run build:tiers",
+    "count": 925,
+    "tierMapping": {
+      "AG": "SS",
+      "UBER": "SS",
+      "OU": "S",
+      "UUBL": "S",
+      "UU": "A",
+      "RUBL": "A",
+      "RU": "B",
+      "NUBL": "B",
+      "NU": "C",
+      "PUBL": "C",
+      "PU": "D",
+      "ZUBL": "D",
+      "ZU": "D",
+      "NFE": "D",
+      "LC": "D"
+    },
+    "excluded": "Tiers « CAP » (Pokémon inventés par la communauté, absents du jeu) et « Illegal » (indisponibles en Génération 9).",
+    "warning": "Un Pokémon absent de cette table est traité comme « tier inconnu » : le moteur refuse alors toute recommandation de remplacement le concernant.",
+    "sourcesDeRecoupement": [
+      "Smogon University — https://www.smogon.com/",
+      "Pokémon Showdown — https://play.pokemonshowdown.com/",
+      "Pikalytics (usage VGC réel) — https://www.pikalytics.com/"
+    ]
   },
   "scale": {
     "SS": {
@@ -45,48 +61,1240 @@
     "D": {
       "score": 0,
       "label": "D",
-      "desc": "Très faible / non évolué"
+      "desc": "Très faible / non pleinement évolué"
     }
   },
   "entries": {
-    "koraidon": [
+    "bulbasaur": [
+      "D",
+      2
+    ],
+    "ivysaur": [
+      "D",
+      2
+    ],
+    "venusaur": [
+      "D",
+      2
+    ],
+    "charmander": [
+      "D",
+      2
+    ],
+    "charmeleon": [
+      "D",
+      2
+    ],
+    "charizard": [
+      "D",
+      2
+    ],
+    "squirtle": [
+      "D",
+      2
+    ],
+    "wartortle": [
+      "D",
+      2
+    ],
+    "blastoise": [
+      "A",
+      2
+    ],
+    "ekans": [
+      "D",
+      2
+    ],
+    "arbok": [
+      "D",
+      2
+    ],
+    "pikachu": [
+      "D",
+      2
+    ],
+    "pikachu-original": [
+      "D",
+      2
+    ],
+    "pikachu-hoenn": [
+      "D",
+      2
+    ],
+    "pikachu-sinnoh": [
+      "D",
+      2
+    ],
+    "pikachu-unova": [
+      "D",
+      2
+    ],
+    "pikachu-kalos": [
+      "D",
+      2
+    ],
+    "pikachu-alola": [
+      "D",
+      2
+    ],
+    "pikachu-partner": [
+      "D",
+      2
+    ],
+    "pikachu-world": [
+      "D",
+      2
+    ],
+    "raichu": [
+      "D",
+      2
+    ],
+    "raichu-alola": [
+      "D",
+      2
+    ],
+    "sandshrew": [
+      "D",
+      2
+    ],
+    "sandshrew-alola": [
+      "D",
+      2
+    ],
+    "sandslash": [
+      "D",
+      2
+    ],
+    "sandslash-alola": [
+      "D",
+      2
+    ],
+    "clefairy": [
+      "D",
+      2
+    ],
+    "clefable": [
+      "S",
+      2
+    ],
+    "vulpix": [
+      "D",
+      2
+    ],
+    "vulpix-alola": [
+      "D",
+      2
+    ],
+    "ninetales": [
+      "D",
+      2
+    ],
+    "ninetales-alola": [
+      "D",
+      2
+    ],
+    "jigglypuff": [
+      "D",
+      2
+    ],
+    "wigglytuff": [
+      "D",
+      2
+    ],
+    "oddish": [
+      "D",
+      2
+    ],
+    "gloom": [
+      "D",
+      2
+    ],
+    "vileplume": [
+      "D",
+      2
+    ],
+    "venonat": [
+      "D",
+      2
+    ],
+    "venomoth": [
+      "D",
+      2
+    ],
+    "diglett": [
+      "D",
+      2
+    ],
+    "diglett-alola": [
+      "D",
+      2
+    ],
+    "dugtrio": [
+      "D",
+      2
+    ],
+    "dugtrio-alola": [
+      "D",
+      2
+    ],
+    "meowth": [
+      "D",
+      2
+    ],
+    "meowth-alola": [
+      "D",
+      2
+    ],
+    "meowth-galar": [
+      "D",
+      2
+    ],
+    "persian": [
+      "D",
+      2
+    ],
+    "persian-alola": [
+      "D",
+      2
+    ],
+    "psyduck": [
+      "D",
+      2
+    ],
+    "golduck": [
+      "D",
+      2
+    ],
+    "mankey": [
+      "D",
+      2
+    ],
+    "primeape": [
+      "D",
+      2
+    ],
+    "growlithe": [
+      "D",
+      2
+    ],
+    "growlithe-hisui": [
+      "D",
+      2
+    ],
+    "arcanine": [
+      "C",
+      2
+    ],
+    "arcanine-hisui": [
+      "A",
+      2
+    ],
+    "poliwag": [
+      "D",
+      2
+    ],
+    "poliwhirl": [
+      "D",
+      2
+    ],
+    "poliwrath": [
+      "D",
+      2
+    ],
+    "bellsprout": [
+      "D",
+      2
+    ],
+    "weepinbell": [
+      "D",
+      2
+    ],
+    "victreebel": [
+      "D",
+      2
+    ],
+    "tentacool": [
+      "D",
+      2
+    ],
+    "tentacruel": [
+      "C",
+      2
+    ],
+    "geodude": [
+      "D",
+      2
+    ],
+    "geodude-alola": [
+      "D",
+      2
+    ],
+    "graveler": [
+      "D",
+      2
+    ],
+    "graveler-alola": [
+      "D",
+      2
+    ],
+    "golem": [
+      "D",
+      2
+    ],
+    "golem-alola": [
+      "D",
+      2
+    ],
+    "slowpoke": [
+      "D",
+      2
+    ],
+    "slowpoke-galar": [
+      "D",
+      2
+    ],
+    "slowbro": [
+      "B",
+      2
+    ],
+    "slowbro-galar": [
+      "D",
+      2
+    ],
+    "magnemite": [
+      "D",
+      2
+    ],
+    "magneton": [
+      "D",
+      2
+    ],
+    "doduo": [
+      "D",
+      2
+    ],
+    "dodrio": [
+      "D",
+      2
+    ],
+    "seel": [
+      "D",
+      2
+    ],
+    "dewgong": [
+      "D",
+      2
+    ],
+    "grimer": [
+      "D",
+      2
+    ],
+    "grimer-alola": [
+      "D",
+      2
+    ],
+    "muk": [
+      "D",
+      2
+    ],
+    "muk-alola": [
+      "B",
+      2
+    ],
+    "shellder": [
+      "D",
+      2
+    ],
+    "cloyster": [
+      "B",
+      2
+    ],
+    "gastly": [
+      "D",
+      2
+    ],
+    "haunter": [
+      "D",
+      2
+    ],
+    "gengar": [
+      "B",
+      2
+    ],
+    "drowzee": [
+      "D",
+      2
+    ],
+    "hypno": [
+      "D",
+      2
+    ],
+    "voltorb": [
+      "D",
+      2
+    ],
+    "voltorb-hisui": [
+      "D",
+      2
+    ],
+    "electrode": [
+      "D",
+      2
+    ],
+    "electrode-hisui": [
+      "D",
+      2
+    ],
+    "exeggcute": [
+      "D",
+      2
+    ],
+    "exeggutor": [
+      "D",
+      2
+    ],
+    "exeggutor-alola": [
+      "D",
+      2
+    ],
+    "hitmonlee": [
+      "D",
+      2
+    ],
+    "hitmonchan": [
+      "D",
+      2
+    ],
+    "koffing": [
+      "D",
+      2
+    ],
+    "weezing": [
+      "D",
+      2
+    ],
+    "weezing-galar": [
+      "S",
+      2
+    ],
+    "rhyhorn": [
+      "D",
+      2
+    ],
+    "rhydon": [
+      "D",
+      2
+    ],
+    "chansey": [
+      "C",
+      2
+    ],
+    "horsea": [
+      "D",
+      2
+    ],
+    "seadra": [
+      "D",
+      2
+    ],
+    "scyther": [
+      "C",
+      2
+    ],
+    "electabuzz": [
+      "D",
+      2
+    ],
+    "magmar": [
+      "D",
+      2
+    ],
+    "tauros": [
+      "D",
+      2
+    ],
+    "tauros-paldea-combat": [
+      "D",
+      2
+    ],
+    "tauros-paldea-combat-breed": [
+      "D",
+      2
+    ],
+    "tauros-paldea-blaze": [
+      "D",
+      2
+    ],
+    "tauros-paldea-blaze-breed": [
+      "D",
+      2
+    ],
+    "tauros-paldea-aqua": [
+      "C",
+      2
+    ],
+    "tauros-paldea-aqua-breed": [
+      "C",
+      2
+    ],
+    "magikarp": [
+      "D",
+      2
+    ],
+    "gyarados": [
+      "A",
+      2
+    ],
+    "lapras": [
+      "D",
+      2
+    ],
+    "ditto": [
+      "D",
+      2
+    ],
+    "eevee": [
+      "D",
+      2
+    ],
+    "vaporeon": [
+      "C",
+      2
+    ],
+    "jolteon": [
+      "D",
+      2
+    ],
+    "flareon": [
+      "D",
+      2
+    ],
+    "porygon": [
+      "D",
+      2
+    ],
+    "snorlax": [
+      "D",
+      2
+    ],
+    "articuno": [
+      "D",
+      2
+    ],
+    "articuno-galar": [
+      "C",
+      2
+    ],
+    "zapdos": [
+      "S",
+      2
+    ],
+    "zapdos-galar": [
+      "A",
+      2
+    ],
+    "moltres": [
+      "S",
+      2
+    ],
+    "moltres-galar": [
+      "S",
+      2
+    ],
+    "dratini": [
+      "D",
+      2
+    ],
+    "dragonair": [
+      "D",
+      2
+    ],
+    "dragonite": [
+      "S",
+      2
+    ],
+    "mewtwo": [
       "SS",
       2
     ],
-    "miraidon": [
+    "mew": [
+      "A",
+      2
+    ],
+    "chikorita": [
+      "D",
+      2
+    ],
+    "bayleef": [
+      "D",
+      2
+    ],
+    "meganium": [
+      "D",
+      2
+    ],
+    "cyndaquil": [
+      "D",
+      2
+    ],
+    "quilava": [
+      "D",
+      2
+    ],
+    "typhlosion": [
+      "D",
+      2
+    ],
+    "typhlosion-hisui": [
+      "D",
+      2
+    ],
+    "totodile": [
+      "D",
+      2
+    ],
+    "croconaw": [
+      "D",
+      2
+    ],
+    "feraligatr": [
+      "B",
+      2
+    ],
+    "sentret": [
+      "D",
+      2
+    ],
+    "furret": [
+      "D",
+      2
+    ],
+    "hoothoot": [
+      "D",
+      2
+    ],
+    "noctowl": [
+      "D",
+      2
+    ],
+    "spinarak": [
+      "D",
+      2
+    ],
+    "ariados": [
+      "D",
+      2
+    ],
+    "chinchou": [
+      "D",
+      2
+    ],
+    "lanturn": [
+      "D",
+      2
+    ],
+    "pichu": [
+      "D",
+      2
+    ],
+    "cleffa": [
+      "D",
+      2
+    ],
+    "igglybuff": [
+      "D",
+      2
+    ],
+    "mareep": [
+      "D",
+      2
+    ],
+    "flaaffy": [
+      "D",
+      2
+    ],
+    "ampharos": [
+      "D",
+      2
+    ],
+    "bellossom": [
+      "D",
+      2
+    ],
+    "marill": [
+      "D",
+      2
+    ],
+    "azumarill": [
+      "A",
+      2
+    ],
+    "sudowoodo": [
+      "D",
+      2
+    ],
+    "politoed": [
+      "B",
+      2
+    ],
+    "hoppip": [
+      "D",
+      2
+    ],
+    "skiploom": [
+      "D",
+      2
+    ],
+    "jumpluff": [
+      "D",
+      2
+    ],
+    "aipom": [
+      "D",
+      2
+    ],
+    "sunkern": [
+      "D",
+      2
+    ],
+    "sunflora": [
+      "D",
+      2
+    ],
+    "yanma": [
+      "D",
+      2
+    ],
+    "wooper": [
+      "D",
+      2
+    ],
+    "wooper-paldea": [
+      "D",
+      2
+    ],
+    "quagsire": [
+      "B",
+      2
+    ],
+    "espeon": [
+      "C",
+      2
+    ],
+    "umbreon": [
+      "B",
+      2
+    ],
+    "murkrow": [
+      "D",
+      2
+    ],
+    "slowking": [
+      "A",
+      2
+    ],
+    "slowking-galar": [
+      "S",
+      2
+    ],
+    "misdreavus": [
+      "D",
+      2
+    ],
+    "girafarig": [
+      "D",
+      2
+    ],
+    "pineco": [
+      "D",
+      2
+    ],
+    "forretress": [
+      "B",
+      2
+    ],
+    "dunsparce": [
+      "D",
+      2
+    ],
+    "gligar": [
+      "C",
+      2
+    ],
+    "snubbull": [
+      "D",
+      2
+    ],
+    "granbull": [
+      "D",
+      2
+    ],
+    "qwilfish": [
+      "D",
+      2
+    ],
+    "qwilfish-hisui": [
+      "D",
+      2
+    ],
+    "scizor": [
+      "A",
+      2
+    ],
+    "heracross": [
+      "D",
+      2
+    ],
+    "sneasel": [
+      "D",
+      2
+    ],
+    "sneasel-hisui": [
+      "D",
+      2
+    ],
+    "teddiursa": [
+      "D",
+      2
+    ],
+    "ursaring": [
+      "D",
+      2
+    ],
+    "slugma": [
+      "D",
+      2
+    ],
+    "magcargo": [
+      "D",
+      2
+    ],
+    "swinub": [
+      "D",
+      2
+    ],
+    "piloswine": [
+      "D",
+      2
+    ],
+    "delibird": [
+      "D",
+      2
+    ],
+    "skarmory": [
+      "A",
+      2
+    ],
+    "houndour": [
+      "D",
+      2
+    ],
+    "houndoom": [
+      "D",
+      2
+    ],
+    "kingdra": [
+      "D",
+      2
+    ],
+    "phanpy": [
+      "D",
+      2
+    ],
+    "donphan": [
+      "A",
+      2
+    ],
+    "porygon2": [
+      "D",
+      2
+    ],
+    "stantler": [
+      "D",
+      2
+    ],
+    "smeargle": [
+      "D",
+      2
+    ],
+    "tyrogue": [
+      "D",
+      2
+    ],
+    "hitmontop": [
+      "D",
+      2
+    ],
+    "elekid": [
+      "D",
+      2
+    ],
+    "magby": [
+      "D",
+      2
+    ],
+    "blissey": [
+      "B",
+      2
+    ],
+    "raikou": [
+      "C",
+      2
+    ],
+    "entei": [
+      "B",
+      2
+    ],
+    "suicune": [
+      "B",
+      2
+    ],
+    "larvitar": [
+      "D",
+      2
+    ],
+    "pupitar": [
+      "D",
+      2
+    ],
+    "tyranitar": [
+      "S",
+      2
+    ],
+    "lugia": [
       "SS",
       2
     ],
-    "terapagos": [
+    "ho-oh": [
       "SS",
       2
     ],
-    "terapagos-stellar": [
-      "SS",
+    "treecko": [
+      "D",
       2
     ],
-    "calyrex-shadow-rider": [
-      "SS",
+    "grovyle": [
+      "D",
       2
     ],
-    "calyrex-ice-rider": [
-      "SS",
+    "sceptile": [
+      "D",
       2
     ],
-    "zacian": [
-      "SS",
+    "torchic": [
+      "D",
       2
     ],
-    "zacian-crowned": [
-      "SS",
+    "combusken": [
+      "D",
       2
     ],
-    "zamazenta": [
-      "SS",
+    "blaziken": [
+      "S",
       2
     ],
-    "zamazenta-crowned": [
-      "SS",
+    "mudkip": [
+      "D",
+      2
+    ],
+    "marshtomp": [
+      "D",
+      2
+    ],
+    "swampert": [
+      "C",
+      2
+    ],
+    "poochyena": [
+      "D",
+      2
+    ],
+    "mightyena": [
+      "D",
+      2
+    ],
+    "lotad": [
+      "D",
+      2
+    ],
+    "lombre": [
+      "D",
+      2
+    ],
+    "ludicolo": [
+      "D",
+      2
+    ],
+    "seedot": [
+      "D",
+      2
+    ],
+    "nuzleaf": [
+      "D",
+      2
+    ],
+    "shiftry": [
+      "D",
+      2
+    ],
+    "wingull": [
+      "D",
+      2
+    ],
+    "pelipper": [
+      "S",
+      2
+    ],
+    "ralts": [
+      "D",
+      2
+    ],
+    "kirlia": [
+      "D",
+      2
+    ],
+    "gardevoir": [
+      "B",
+      2
+    ],
+    "surskit": [
+      "D",
+      2
+    ],
+    "masquerain": [
+      "D",
+      2
+    ],
+    "shroomish": [
+      "D",
+      2
+    ],
+    "breloom": [
+      "B",
+      2
+    ],
+    "slakoth": [
+      "D",
+      2
+    ],
+    "vigoroth": [
+      "D",
+      2
+    ],
+    "slaking": [
+      "D",
+      2
+    ],
+    "makuhita": [
+      "D",
+      2
+    ],
+    "hariyama": [
+      "D",
+      2
+    ],
+    "azurill": [
+      "D",
+      2
+    ],
+    "nosepass": [
+      "D",
+      2
+    ],
+    "sableye": [
+      "D",
+      2
+    ],
+    "meditite": [
+      "D",
+      2
+    ],
+    "medicham": [
+      "D",
+      2
+    ],
+    "plusle": [
+      "D",
+      2
+    ],
+    "minun": [
+      "D",
+      2
+    ],
+    "volbeat": [
+      "D",
+      2
+    ],
+    "illumise": [
+      "D",
+      2
+    ],
+    "gulpin": [
+      "D",
+      2
+    ],
+    "swalot": [
+      "D",
+      2
+    ],
+    "numel": [
+      "D",
+      2
+    ],
+    "camerupt": [
+      "D",
+      2
+    ],
+    "torkoal": [
+      "D",
+      2
+    ],
+    "spoink": [
+      "D",
+      2
+    ],
+    "grumpig": [
+      "D",
+      2
+    ],
+    "trapinch": [
+      "D",
+      2
+    ],
+    "vibrava": [
+      "D",
+      2
+    ],
+    "flygon": [
+      "C",
+      2
+    ],
+    "cacnea": [
+      "D",
+      2
+    ],
+    "cacturne": [
+      "D",
+      2
+    ],
+    "swablu": [
+      "D",
+      2
+    ],
+    "altaria": [
+      "C",
+      2
+    ],
+    "zangoose": [
+      "D",
+      2
+    ],
+    "seviper": [
+      "D",
+      2
+    ],
+    "barboach": [
+      "D",
+      2
+    ],
+    "whiscash": [
+      "D",
+      2
+    ],
+    "corphish": [
+      "D",
+      2
+    ],
+    "crawdaunt": [
+      "B",
+      2
+    ],
+    "feebas": [
+      "D",
+      2
+    ],
+    "milotic": [
+      "D",
+      2
+    ],
+    "shuppet": [
+      "D",
+      2
+    ],
+    "banette": [
+      "D",
+      2
+    ],
+    "duskull": [
+      "D",
+      2
+    ],
+    "dusclops": [
+      "D",
+      2
+    ],
+    "tropius": [
+      "D",
+      2
+    ],
+    "chimecho": [
+      "D",
+      2
+    ],
+    "snorunt": [
+      "D",
+      2
+    ],
+    "glalie": [
+      "D",
+      2
+    ],
+    "luvdisc": [
+      "D",
+      2
+    ],
+    "bagon": [
+      "D",
+      2
+    ],
+    "shelgon": [
+      "D",
+      2
+    ],
+    "salamence": [
+      "A",
+      2
+    ],
+    "beldum": [
+      "D",
+      2
+    ],
+    "metang": [
+      "D",
+      2
+    ],
+    "metagross": [
+      "A",
+      2
+    ],
+    "regirock": [
+      "D",
+      2
+    ],
+    "regice": [
+      "D",
+      2
+    ],
+    "registeel": [
+      "B",
+      2
+    ],
+    "latias": [
+      "S",
+      2
+    ],
+    "latios": [
+      "A",
       2
     ],
     "kyogre": [
@@ -101,12 +1309,348 @@
       "SS",
       2
     ],
-    "mewtwo": [
+    "jirachi": [
+      "B",
+      2
+    ],
+    "deoxys": [
       "SS",
       2
     ],
-    "arceus": [
+    "deoxys-attack": [
       "SS",
+      2
+    ],
+    "deoxys-defense": [
+      "B",
+      2
+    ],
+    "deoxys-speed": [
+      "S",
+      2
+    ],
+    "turtwig": [
+      "D",
+      2
+    ],
+    "grotle": [
+      "D",
+      2
+    ],
+    "torterra": [
+      "B",
+      2
+    ],
+    "chimchar": [
+      "D",
+      2
+    ],
+    "monferno": [
+      "D",
+      2
+    ],
+    "infernape": [
+      "C",
+      2
+    ],
+    "piplup": [
+      "D",
+      2
+    ],
+    "prinplup": [
+      "D",
+      2
+    ],
+    "empoleon": [
+      "B",
+      2
+    ],
+    "starly": [
+      "D",
+      2
+    ],
+    "staravia": [
+      "D",
+      2
+    ],
+    "staraptor": [
+      "C",
+      2
+    ],
+    "kricketot": [
+      "D",
+      2
+    ],
+    "kricketune": [
+      "D",
+      2
+    ],
+    "shinx": [
+      "D",
+      2
+    ],
+    "luxio": [
+      "D",
+      2
+    ],
+    "luxray": [
+      "D",
+      2
+    ],
+    "cranidos": [
+      "D",
+      2
+    ],
+    "rampardos": [
+      "D",
+      2
+    ],
+    "shieldon": [
+      "D",
+      2
+    ],
+    "bastiodon": [
+      "D",
+      2
+    ],
+    "combee": [
+      "D",
+      2
+    ],
+    "vespiquen": [
+      "D",
+      2
+    ],
+    "pachirisu": [
+      "D",
+      2
+    ],
+    "buizel": [
+      "D",
+      2
+    ],
+    "floatzel": [
+      "D",
+      2
+    ],
+    "shellos": [
+      "D",
+      2
+    ],
+    "shellos-east": [
+      "D",
+      2
+    ],
+    "gastrodon": [
+      "B",
+      2
+    ],
+    "gastrodon-east": [
+      "B",
+      2
+    ],
+    "ambipom": [
+      "D",
+      2
+    ],
+    "drifloon": [
+      "D",
+      2
+    ],
+    "drifblim": [
+      "D",
+      2
+    ],
+    "mismagius": [
+      "D",
+      2
+    ],
+    "honchkrow": [
+      "D",
+      2
+    ],
+    "chingling": [
+      "D",
+      2
+    ],
+    "stunky": [
+      "D",
+      2
+    ],
+    "skuntank": [
+      "D",
+      2
+    ],
+    "bronzor": [
+      "D",
+      2
+    ],
+    "bronzong": [
+      "C",
+      2
+    ],
+    "bonsly": [
+      "D",
+      2
+    ],
+    "happiny": [
+      "D",
+      2
+    ],
+    "spiritomb": [
+      "D",
+      2
+    ],
+    "gible": [
+      "D",
+      2
+    ],
+    "gabite": [
+      "D",
+      2
+    ],
+    "garchomp": [
+      "S",
+      2
+    ],
+    "munchlax": [
+      "D",
+      2
+    ],
+    "riolu": [
+      "D",
+      2
+    ],
+    "lucario": [
+      "B",
+      2
+    ],
+    "hippopotas": [
+      "D",
+      2
+    ],
+    "hippowdon": [
+      "A",
+      2
+    ],
+    "croagunk": [
+      "D",
+      2
+    ],
+    "toxicroak": [
+      "D",
+      2
+    ],
+    "finneon": [
+      "D",
+      2
+    ],
+    "lumineon": [
+      "D",
+      2
+    ],
+    "snover": [
+      "D",
+      2
+    ],
+    "abomasnow": [
+      "D",
+      2
+    ],
+    "weavile": [
+      "A",
+      2
+    ],
+    "magnezone": [
+      "B",
+      2
+    ],
+    "rhyperior": [
+      "C",
+      2
+    ],
+    "electivire": [
+      "D",
+      2
+    ],
+    "magmortar": [
+      "D",
+      2
+    ],
+    "yanmega": [
+      "B",
+      2
+    ],
+    "leafeon": [
+      "D",
+      2
+    ],
+    "glaceon": [
+      "D",
+      2
+    ],
+    "gliscor": [
+      "S",
+      2
+    ],
+    "mamoswine": [
+      "A",
+      2
+    ],
+    "porygon-z": [
+      "B",
+      2
+    ],
+    "gallade": [
+      "B",
+      2
+    ],
+    "probopass": [
+      "D",
+      2
+    ],
+    "dusknoir": [
+      "D",
+      2
+    ],
+    "froslass": [
+      "D",
+      2
+    ],
+    "rotom": [
+      "D",
+      2
+    ],
+    "rotom-heat": [
+      "D",
+      2
+    ],
+    "rotom-wash": [
+      "A",
+      2
+    ],
+    "rotom-frost": [
+      "D",
+      2
+    ],
+    "rotom-fan": [
+      "D",
+      2
+    ],
+    "rotom-mow": [
+      "D",
+      2
+    ],
+    "uxie": [
+      "C",
+      2
+    ],
+    "mesprit": [
+      "D",
+      2
+    ],
+    "azelf": [
+      "B",
       2
     ],
     "dialga": [
@@ -125,6 +1669,14 @@
       "SS",
       2
     ],
+    "heatran": [
+      "S",
+      2
+    ],
+    "regigigas": [
+      "D",
+      2
+    ],
     "giratina": [
       "SS",
       2
@@ -133,44 +1685,468 @@
       "SS",
       2
     ],
-    "eternatus": [
+    "cresselia": [
+      "B",
+      2
+    ],
+    "phione": [
+      "D",
+      2
+    ],
+    "manaphy": [
+      "A",
+      2
+    ],
+    "darkrai": [
+      "S",
+      2
+    ],
+    "shaymin": [
+      "D",
+      2
+    ],
+    "shaymin-sky": [
       "SS",
       2
     ],
-    "lunala": [
+    "arceus": [
       "SS",
       2
     ],
-    "solgaleo": [
+    "arceus-bug": [
       "SS",
       2
     ],
-    "necrozma-dusk": [
+    "arceus-dark": [
       "SS",
       2
     ],
-    "necrozma-dawn": [
+    "arceus-dragon": [
       "SS",
       2
     ],
-    "xerneas": [
+    "arceus-electric": [
       "SS",
       2
     ],
-    "yveltal": [
+    "arceus-fairy": [
       "SS",
       2
     ],
-    "zygarde": [
+    "arceus-fighting": [
       "SS",
       2
     ],
-    "ho-oh": [
+    "arceus-fire": [
       "SS",
       2
     ],
-    "lugia": [
+    "arceus-flying": [
       "SS",
+      2
+    ],
+    "arceus-ghost": [
+      "SS",
+      2
+    ],
+    "arceus-grass": [
+      "SS",
+      2
+    ],
+    "arceus-ground": [
+      "SS",
+      2
+    ],
+    "arceus-ice": [
+      "SS",
+      2
+    ],
+    "arceus-poison": [
+      "SS",
+      2
+    ],
+    "arceus-psychic": [
+      "SS",
+      2
+    ],
+    "arceus-rock": [
+      "SS",
+      2
+    ],
+    "arceus-steel": [
+      "SS",
+      2
+    ],
+    "arceus-water": [
+      "SS",
+      2
+    ],
+    "snivy": [
+      "D",
+      2
+    ],
+    "servine": [
+      "D",
+      2
+    ],
+    "serperior": [
+      "A",
+      2
+    ],
+    "tepig": [
+      "D",
+      2
+    ],
+    "pignite": [
+      "D",
+      2
+    ],
+    "emboar": [
+      "D",
+      2
+    ],
+    "oshawott": [
+      "D",
+      2
+    ],
+    "dewott": [
+      "D",
+      2
+    ],
+    "samurott": [
+      "D",
+      2
+    ],
+    "samurott-hisui": [
+      "S",
+      2
+    ],
+    "blitzle": [
+      "D",
+      2
+    ],
+    "zebstrika": [
+      "D",
+      2
+    ],
+    "drilbur": [
+      "D",
+      2
+    ],
+    "excadrill": [
+      "A",
+      2
+    ],
+    "timburr": [
+      "D",
+      2
+    ],
+    "gurdurr": [
+      "D",
+      2
+    ],
+    "conkeldurr": [
+      "A",
+      2
+    ],
+    "sewaddle": [
+      "D",
+      2
+    ],
+    "swadloon": [
+      "D",
+      2
+    ],
+    "leavanny": [
+      "D",
+      2
+    ],
+    "cottonee": [
+      "D",
+      2
+    ],
+    "whimsicott": [
+      "D",
+      2
+    ],
+    "petilil": [
+      "D",
+      2
+    ],
+    "lilligant": [
+      "D",
+      2
+    ],
+    "lilligant-hisui": [
+      "A",
+      2
+    ],
+    "basculin": [
+      "D",
+      2
+    ],
+    "basculin-blue-striped": [
+      "D",
+      2
+    ],
+    "basculin-white-striped": [
+      "D",
+      2
+    ],
+    "sandile": [
+      "D",
+      2
+    ],
+    "krokorok": [
+      "D",
+      2
+    ],
+    "krookodile": [
+      "B",
+      2
+    ],
+    "scraggy": [
+      "D",
+      2
+    ],
+    "scrafty": [
+      "C",
+      2
+    ],
+    "zorua": [
+      "D",
+      2
+    ],
+    "zorua-hisui": [
+      "D",
+      2
+    ],
+    "zoroark": [
+      "D",
+      2
+    ],
+    "zoroark-hisui": [
+      "A",
+      2
+    ],
+    "minccino": [
+      "D",
+      2
+    ],
+    "cinccino": [
+      "C",
+      2
+    ],
+    "gothita": [
+      "D",
+      2
+    ],
+    "gothorita": [
+      "D",
+      2
+    ],
+    "gothitelle": [
+      "D",
+      2
+    ],
+    "solosis": [
+      "D",
+      2
+    ],
+    "duosion": [
+      "D",
+      2
+    ],
+    "reuniclus": [
+      "B",
+      2
+    ],
+    "ducklett": [
+      "D",
+      2
+    ],
+    "swanna": [
+      "D",
+      2
+    ],
+    "deerling": [
+      "D",
+      2
+    ],
+    "deerling-summer": [
+      "D",
+      2
+    ],
+    "deerling-autumn": [
+      "D",
+      2
+    ],
+    "deerling-winter": [
+      "D",
+      2
+    ],
+    "sawsbuck": [
+      "D",
+      2
+    ],
+    "foongus": [
+      "D",
+      2
+    ],
+    "amoonguss": [
+      "D",
+      2
+    ],
+    "alomomola": [
+      "S",
+      2
+    ],
+    "joltik": [
+      "D",
+      2
+    ],
+    "galvantula": [
+      "D",
+      2
+    ],
+    "tynamo": [
+      "D",
+      2
+    ],
+    "eelektrik": [
+      "D",
+      2
+    ],
+    "eelektross": [
+      "D",
+      2
+    ],
+    "litwick": [
+      "D",
+      2
+    ],
+    "lampent": [
+      "D",
+      2
+    ],
+    "chandelure": [
+      "C",
+      2
+    ],
+    "axew": [
+      "D",
+      2
+    ],
+    "fraxure": [
+      "D",
+      2
+    ],
+    "haxorus": [
+      "A",
+      2
+    ],
+    "cubchoo": [
+      "D",
+      2
+    ],
+    "beartic": [
+      "D",
+      2
+    ],
+    "cryogonal": [
+      "D",
+      2
+    ],
+    "mienfoo": [
+      "D",
+      2
+    ],
+    "mienshao": [
+      "A",
+      2
+    ],
+    "golett": [
+      "D",
+      2
+    ],
+    "golurk": [
+      "D",
+      2
+    ],
+    "pawniard": [
+      "D",
+      2
+    ],
+    "bisharp": [
+      "B",
+      2
+    ],
+    "rufflet": [
+      "D",
+      2
+    ],
+    "braviary": [
+      "C",
+      2
+    ],
+    "braviary-hisui": [
+      "D",
+      2
+    ],
+    "vullaby": [
+      "D",
+      2
+    ],
+    "mandibuzz": [
+      "A",
+      2
+    ],
+    "deino": [
+      "D",
+      2
+    ],
+    "zweilous": [
+      "D",
+      2
+    ],
+    "hydreigon": [
+      "A",
+      2
+    ],
+    "larvesta": [
+      "D",
+      2
+    ],
+    "volcarona": [
+      "SS",
+      2
+    ],
+    "cobalion": [
+      "A",
+      2
+    ],
+    "terrakion": [
+      "B",
+      2
+    ],
+    "virizion": [
+      "D",
+      2
+    ],
+    "tornadus": [
+      "C",
+      2
+    ],
+    "tornadus-therian": [
+      "S",
+      2
+    ],
+    "thundurus": [
+      "A",
+      2
+    ],
+    "thundurus-therian": [
+      "A",
       2
     ],
     "reshiram": [
@@ -181,6 +2157,18 @@
       "SS",
       2
     ],
+    "landorus": [
+      "SS",
+      2
+    ],
+    "landorus-therian": [
+      "S",
+      2
+    ],
+    "kyurem": [
+      "S",
+      2
+    ],
     "kyurem-black": [
       "SS",
       2
@@ -189,888 +2177,880 @@
       "SS",
       2
     ],
-    "flutter-mane": [
-      "S",
-      2
-    ],
-    "chien-pao": [
-      "S",
-      2
-    ],
-    "chi-yu": [
-      "S",
-      2
-    ],
-    "ting-lu": [
-      "S",
-      2
-    ],
-    "gholdengo": [
-      "S",
-      2
-    ],
-    "great-tusk": [
-      "S",
-      2
-    ],
-    "kingambit": [
-      "S",
-      2
-    ],
-    "dragapult": [
-      "S",
-      2
-    ],
-    "iron-bundle": [
-      "S",
-      2
-    ],
-    "iron-valiant": [
-      "S",
-      2
-    ],
-    "roaring-moon": [
-      "S",
-      2
-    ],
-    "raging-bolt": [
-      "S",
-      2
-    ],
-    "gouging-fire": [
-      "S",
-      2
-    ],
-    "iron-crown": [
-      "S",
-      2
-    ],
-    "iron-boulder": [
-      "S",
-      2
-    ],
-    "walking-wake": [
-      "S",
-      2
-    ],
-    "garchomp": [
-      "S",
-      2
-    ],
-    "baxcalibur": [
-      "S",
-      2
-    ],
-    "dragonite": [
-      "S",
-      2
-    ],
-    "landorus": [
-      "S",
-      2
-    ],
-    "landorus-therian": [
-      "S",
-      2
-    ],
-    "urshifu": [
-      "S",
-      2
-    ],
-    "urshifu-rapid-strike": [
-      "S",
-      2
-    ],
-    "ogerpon": [
-      "S",
-      2
-    ],
-    "ogerpon-wellspring": [
-      "S",
-      2
-    ],
-    "ogerpon-hearthflame": [
-      "S",
-      2
-    ],
-    "incineroar": [
-      "S",
-      2
-    ],
-    "rillaboom": [
-      "S",
-      2
-    ],
-    "volcarona": [
-      "S",
-      2
-    ],
-    "heatran": [
-      "S",
-      2
-    ],
-    "glimmora": [
-      "S",
-      2
-    ],
-    "archaludon": [
-      "S",
-      2
-    ],
-    "samurott-hisui": [
-      "S",
-      2
-    ],
-    "enamorus": [
-      "S",
-      2
-    ],
-    "zapdos": [
-      "S",
-      2
-    ],
-    "kyurem": [
-      "S",
-      2
-    ],
-    "ursaluna": [
-      "S",
-      2
-    ],
-    "ursaluna-bloodmoon": [
-      "S",
-      2
-    ],
-    "iron-moth": [
-      "S",
-      2
-    ],
-    "clodsire": [
-      "S",
-      2
-    ],
-    "corviknight": [
-      "S",
-      2
-    ],
-    "toxapex": [
-      "S",
-      2
-    ],
-    "gliscor": [
-      "S",
-      2
-    ],
-    "slowking-galar": [
-      "S",
-      2
-    ],
-    "hatterene": [
-      "S",
-      1
-    ],
-    "sinistcha": [
-      "S",
-      1
-    ],
-    "basculegion": [
-      "S",
-      1
-    ],
-    "whimsicott": [
-      "S",
-      1
-    ],
-    "pelipper": [
-      "S",
-      1
-    ],
-    "amoonguss": [
-      "S",
-      2
-    ],
-    "annihilape": [
+    "keldeo": [
       "A",
       2
     ],
-    "meowscarada": [
+    "keldeo-resolute": [
       "A",
       2
     ],
-    "skeledirge": [
-      "A",
-      2
-    ],
-    "quaquaval": [
-      "A",
-      2
-    ],
-    "ceruledge": [
-      "A",
-      2
-    ],
-    "armarouge": [
-      "A",
-      2
-    ],
-    "tinkaton": [
-      "A",
-      2
-    ],
-    "palafin": [
-      "A",
-      2
-    ],
-    "palafin-hero": [
-      "A",
-      2
-    ],
-    "garganacl": [
-      "A",
-      2
-    ],
-    "dondozo": [
-      "A",
-      2
-    ],
-    "tatsugiri": [
-      "A",
-      2
-    ],
-    "maushold": [
-      "A",
-      2
-    ],
-    "espathra": [
-      "A",
-      2
-    ],
-    "kilowattrel": [
-      "A",
-      1
-    ],
-    "bombirdier": [
-      "A",
-      1
-    ],
-    "orthworm": [
-      "A",
-      1
-    ],
-    "scizor": [
-      "A",
-      2
-    ],
-    "gyarados": [
-      "A",
-      2
-    ],
-    "tyranitar": [
-      "A",
-      2
-    ],
-    "salamence": [
-      "A",
-      2
-    ],
-    "metagross": [
-      "A",
-      2
-    ],
-    "hydreigon": [
-      "A",
-      2
-    ],
-    "goodra-hisui": [
-      "A",
-      2
-    ],
-    "lokix": [
-      "A",
-      1
-    ],
-    "kleavor": [
-      "A",
-      2
-    ],
-    "sneasler": [
-      "A",
-      2
-    ],
-    "iron-hands": [
-      "A",
-      2
-    ],
-    "iron-treads": [
-      "A",
-      2
-    ],
-    "iron-jugulis": [
-      "A",
-      1
-    ],
-    "iron-thorns": [
-      "A",
-      1
-    ],
-    "iron-leaves": [
-      "A",
-      1
-    ],
-    "brute-bonnet": [
-      "A",
-      1
-    ],
-    "sandy-shocks": [
-      "A",
-      1
-    ],
-    "scream-tail": [
-      "A",
-      1
-    ],
-    "slither-wing": [
-      "A",
-      1
-    ],
-    "wo-chien": [
-      "A",
-      1
-    ],
-    "tinkatuff": [
+    "meloetta": [
       "C",
-      1
-    ],
-    "talonflame": [
-      "A",
-      1
-    ],
-    "rotom-wash": [
-      "A",
       2
     ],
-    "rotom-heat": [
-      "A",
-      1
-    ],
-    "gardevoir": [
-      "A",
+    "meloetta-pirouette": [
+      "C",
       2
     ],
-    "gengar": [
-      "A",
+    "chespin": [
+      "D",
+      2
+    ],
+    "quilladin": [
+      "D",
+      2
+    ],
+    "chesnaught": [
+      "B",
+      2
+    ],
+    "fennekin": [
+      "D",
+      2
+    ],
+    "braixen": [
+      "D",
+      2
+    ],
+    "delphox": [
+      "D",
+      2
+    ],
+    "froakie": [
+      "D",
+      2
+    ],
+    "frogadier": [
+      "D",
       2
     ],
     "greninja": [
       "A",
       2
     ],
-    "cinderace": [
+    "greninja-bond": [
       "A",
       2
     ],
-    "zoroark-hisui": [
+    "fletchling": [
+      "D",
+      2
+    ],
+    "fletchinder": [
+      "D",
+      2
+    ],
+    "talonflame": [
       "A",
       2
     ],
-    "lilligant-hisui": [
-      "A",
-      1
-    ],
-    "arcanine": [
-      "A",
+    "scatterbug": [
+      "D",
       2
     ],
-    "arcanine-hisui": [
-      "A",
-      1
-    ],
-    "pawmot": [
-      "A",
-      1
-    ],
-    "revavroom": [
-      "A",
-      1
-    ],
-    "grimmsnarl": [
-      "A",
+    "spewpa": [
+      "D",
       2
     ],
-    "mimikyu": [
-      "A",
+    "vivillon": [
+      "D",
       2
     ],
-    "primarina": [
-      "A",
+    "vivillon-icy-snow": [
+      "D",
       2
     ],
-    "azumarill": [
-      "A",
+    "vivillon-polar": [
+      "D",
       2
     ],
-    "excadrill": [
-      "A",
+    "vivillon-tundra": [
+      "D",
       2
     ],
-    "ferrothorn": [
-      "A",
+    "vivillon-continental": [
+      "D",
       2
     ],
-    "hippowdon": [
-      "A",
-      1
-    ],
-    "skarmory": [
-      "A",
-      1
-    ],
-    "blissey": [
-      "A",
+    "vivillon-garden": [
+      "D",
       2
     ],
-    "chansey": [
-      "A",
-      1
+    "vivillon-elegant": [
+      "D",
+      2
+    ],
+    "vivillon-modern": [
+      "D",
+      2
+    ],
+    "vivillon-marine": [
+      "D",
+      2
+    ],
+    "vivillon-archipelago": [
+      "D",
+      2
+    ],
+    "vivillon-high-plains": [
+      "D",
+      2
+    ],
+    "vivillon-sandstorm": [
+      "D",
+      2
+    ],
+    "vivillon-river": [
+      "D",
+      2
+    ],
+    "vivillon-monsoon": [
+      "D",
+      2
+    ],
+    "vivillon-savanna": [
+      "D",
+      2
+    ],
+    "vivillon-sun": [
+      "D",
+      2
+    ],
+    "vivillon-ocean": [
+      "D",
+      2
+    ],
+    "vivillon-jungle": [
+      "D",
+      2
+    ],
+    "vivillon-fancy": [
+      "D",
+      2
+    ],
+    "vivillon-pokeball": [
+      "D",
+      2
+    ],
+    "litleo": [
+      "D",
+      2
+    ],
+    "pyroar": [
+      "D",
+      2
+    ],
+    "flabebe": [
+      "D",
+      2
+    ],
+    "floette": [
+      "D",
+      2
+    ],
+    "florges": [
+      "D",
+      2
+    ],
+    "skiddo": [
+      "D",
+      2
+    ],
+    "gogoat": [
+      "D",
+      2
+    ],
+    "espurr": [
+      "D",
+      2
+    ],
+    "meowstic": [
+      "D",
+      2
+    ],
+    "meowstic-f": [
+      "D",
+      2
+    ],
+    "meowstic-female": [
+      "D",
+      2
+    ],
+    "inkay": [
+      "D",
+      2
+    ],
+    "malamar": [
+      "D",
+      2
+    ],
+    "skrelp": [
+      "D",
+      2
     ],
     "dragalge": [
+      "C",
+      2
+    ],
+    "clauncher": [
+      "D",
+      2
+    ],
+    "clawitzer": [
+      "D",
+      2
+    ],
+    "sylveon": [
+      "C",
+      2
+    ],
+    "hawlucha": [
+      "A",
+      2
+    ],
+    "dedenne": [
+      "D",
+      2
+    ],
+    "carbink": [
+      "D",
+      2
+    ],
+    "goomy": [
+      "D",
+      2
+    ],
+    "sliggoo": [
+      "D",
+      2
+    ],
+    "sliggoo-hisui": [
+      "D",
+      2
+    ],
+    "goodra": [
+      "C",
+      2
+    ],
+    "goodra-hisui": [
       "B",
-      1
+      2
+    ],
+    "klefki": [
+      "C",
+      2
+    ],
+    "phantump": [
+      "D",
+      2
+    ],
+    "trevenant": [
+      "D",
+      2
+    ],
+    "bergmite": [
+      "D",
+      2
+    ],
+    "avalugg": [
+      "C",
+      2
+    ],
+    "avalugg-hisui": [
+      "D",
+      2
+    ],
+    "noibat": [
+      "D",
+      2
     ],
     "noivern": [
       "B",
-      1
-    ],
-    "staraptor": [
-      "A",
-      1
-    ],
-    "lucario": [
-      "A",
       2
     ],
-    "togekiss": [
-      "A",
+    "diancie": [
+      "B",
       2
     ],
-    "weavile": [
-      "A",
+    "hoopa": [
+      "D",
       2
     ],
-    "breloom": [
-      "A",
+    "hoopa-unbound": [
+      "S",
       2
     ],
     "volcanion": [
       "A",
-      1
-    ],
-    "tapu-koko": [
-      "A",
       2
     ],
-    "tapu-fini": [
-      "A",
+    "rowlet": [
+      "D",
       2
     ],
-    "tapu-lele": [
-      "A",
+    "dartrix": [
+      "D",
       2
     ],
-    "tapu-bulu": [
-      "A",
-      1
-    ],
-    "thundurus": [
-      "A",
-      1
-    ],
-    "thundurus-therian": [
-      "A",
-      1
-    ],
-    "tornadus": [
-      "A",
-      1
-    ],
-    "tornadus-therian": [
-      "A",
-      2
-    ],
-    "suicune": [
-      "A",
-      1
-    ],
-    "raikou": [
-      "A",
-      1
-    ],
-    "entei": [
-      "A",
-      1
-    ],
-    "moltres": [
-      "A",
-      1
-    ],
-    "articuno": [
-      "B",
-      1
-    ],
-    "regieleki": [
-      "A",
-      1
-    ],
-    "regidrago": [
-      "A",
-      1
-    ],
-    "glastrier": [
-      "B",
-      1
-    ],
-    "spectrier": [
-      "A",
-      1
-    ],
-    "okidogi": [
-      "A",
-      1
-    ],
-    "munkidori": [
-      "A",
-      1
-    ],
-    "fezandipiti": [
-      "A",
-      1
-    ],
-    "hydrapple": [
-      "A",
-      1
-    ],
-    "gouging": [
-      "A",
-      1
-    ],
-    "clefable": [
-      "B",
-      2
-    ],
-    "jolteon": [
-      "B",
-      1
-    ],
-    "vaporeon": [
-      "B",
-      1
-    ],
-    "flareon": [
+    "decidueye": [
       "C",
-      1
-    ],
-    "espeon": [
-      "B",
-      1
-    ],
-    "umbreon": [
-      "B",
-      1
-    ],
-    "leafeon": [
-      "C",
-      1
-    ],
-    "glaceon": [
-      "C",
-      1
-    ],
-    "sylveon": [
-      "B",
       2
     ],
-    "crobat": [
-      "B",
-      1
+    "decidueye-hisui": [
+      "D",
+      2
     ],
-    "houndoom": [
-      "B",
-      1
+    "litten": [
+      "D",
+      2
     ],
-    "flygon": [
-      "B",
-      1
+    "torracat": [
+      "D",
+      2
     ],
-    "altaria": [
-      "B",
-      1
+    "incineroar": [
+      "C",
+      2
     ],
-    "ampharos": [
-      "B",
-      1
+    "popplio": [
+      "D",
+      2
     ],
-    "donphan": [
-      "B",
-      1
+    "brionne": [
+      "D",
+      2
     ],
-    "bisharp": [
-      "B",
-      1
+    "primarina": [
+      "S",
+      2
     ],
-    "pangoro": [
-      "B",
-      1
+    "pikipek": [
+      "D",
+      2
     ],
-    "toxicroak": [
-      "B",
-      1
+    "trumbeak": [
+      "D",
+      2
     ],
-    "mudsdale": [
-      "B",
-      1
+    "toucannon": [
+      "D",
+      2
+    ],
+    "yungoos": [
+      "D",
+      2
+    ],
+    "gumshoos": [
+      "D",
+      2
+    ],
+    "grubbin": [
+      "D",
+      2
+    ],
+    "charjabug": [
+      "D",
+      2
+    ],
+    "vikavolt": [
+      "D",
+      2
+    ],
+    "crabrawler": [
+      "D",
+      2
+    ],
+    "crabominable": [
+      "D",
+      2
     ],
     "oricorio": [
+      "D",
+      2
+    ],
+    "oricorio-pom-pom": [
+      "A",
+      2
+    ],
+    "oricorio-pau": [
+      "D",
+      2
+    ],
+    "oricorio-sensu": [
       "B",
-      1
+      2
+    ],
+    "cutiefly": [
+      "D",
+      2
     ],
     "ribombee": [
       "B",
-      1
-    ],
-    "garchomp-mega": [
-      "S",
-      1
-    ],
-    "klefki": [
-      "B",
-      1
-    ],
-    "meowstic": [
-      "C",
-      1
-    ],
-    "dachsbun": [
-      "B",
-      1
-    ],
-    "arboliva": [
-      "B",
-      1
-    ],
-    "bellibolt": [
-      "B",
-      1
-    ],
-    "brambleghast": [
-      "B",
-      1
-    ],
-    "cetitan": [
-      "B",
-      1
-    ],
-    "clawitzer": [
-      "B",
-      1
-    ],
-    "dudunsparce": [
-      "B",
-      1
-    ],
-    "farigiraf": [
-      "B",
-      1
-    ],
-    "flamigo": [
-      "B",
-      1
-    ],
-    "glalie": [
-      "C",
-      1
-    ],
-    "grafaiai": [
-      "B",
-      1
-    ],
-    "houndstone": [
-      "B",
-      1
-    ],
-    "kingdra": [
-      "B",
-      1
-    ],
-    "klawf": [
-      "B",
-      1
-    ],
-    "magnezone": [
-      "B",
       2
     ],
-    "mabosstiff": [
-      "B",
-      1
+    "rockruff": [
+      "D",
+      2
     ],
-    "oinkologne": [
-      "C",
-      1
-    ],
-    "pincurchin": [
-      "C",
-      1
-    ],
-    "polteageist": [
-      "B",
-      1
-    ],
-    "rabsca": [
-      "B",
-      1
-    ],
-    "scovillain": [
-      "C",
-      1
-    ],
-    "toedscruel": [
-      "B",
-      1
-    ],
-    "veluza": [
-      "B",
-      1
-    ],
-    "wugtrio": [
-      "C",
-      1
+    "rockruff-dusk": [
+      "D",
+      2
     ],
     "lycanroc": [
-      "C",
-      2
-    ],
-    "lycanroc-midday": [
-      "C",
+      "D",
       2
     ],
     "lycanroc-midnight": [
-      "C",
+      "D",
       2
     ],
     "lycanroc-dusk": [
       "B",
       2
     ],
-    "passimian": [
+    "mareanie": [
+      "D",
+      2
+    ],
+    "toxapex": [
+      "A",
+      2
+    ],
+    "mudbray": [
+      "D",
+      2
+    ],
+    "mudsdale": [
+      "D",
+      2
+    ],
+    "dewpider": [
+      "D",
+      2
+    ],
+    "araquanid": [
       "C",
-      1
+      2
+    ],
+    "fomantis": [
+      "D",
+      2
+    ],
+    "lurantis": [
+      "D",
+      2
+    ],
+    "salandit": [
+      "D",
+      2
+    ],
+    "salazzle": [
+      "D",
+      2
+    ],
+    "bounsweet": [
+      "D",
+      2
+    ],
+    "steenee": [
+      "D",
+      2
+    ],
+    "tsareena": [
+      "C",
+      2
+    ],
+    "comfey": [
+      "B",
+      2
     ],
     "oranguru": [
-      "C",
-      1
+      "D",
+      2
     ],
-    "komala": [
-      "C",
-      1
+    "passimian": [
+      "D",
+      2
     ],
-    "turtonator": [
-      "C",
-      1
-    ],
-    "drampa": [
-      "C",
-      1
-    ],
-    "bruxish": [
-      "C",
-      1
+    "sandygast": [
+      "D",
+      2
     ],
     "palossand": [
-      "C",
-      1
+      "D",
+      2
     ],
-    "golisopod": [
+    "minior": [
+      "D",
+      2
+    ],
+    "minior-orange": [
+      "D",
+      2
+    ],
+    "minior-yellow": [
+      "D",
+      2
+    ],
+    "minior-green": [
+      "D",
+      2
+    ],
+    "minior-blue": [
+      "D",
+      2
+    ],
+    "minior-indigo": [
+      "D",
+      2
+    ],
+    "minior-violet": [
+      "D",
+      2
+    ],
+    "minior-meteor": [
+      "D",
+      2
+    ],
+    "komala": [
+      "D",
+      2
+    ],
+    "mimikyu": [
       "B",
-      1
+      2
     ],
-    "mudsdale-x": [
+    "mimikyu-busted": [
+      "B",
+      2
+    ],
+    "bruxish": [
+      "D",
+      2
+    ],
+    "jangmo-o": [
+      "D",
+      2
+    ],
+    "hakamo-o": [
+      "D",
+      2
+    ],
+    "kommo-o": [
+      "S",
+      2
+    ],
+    "cosmog": [
+      "D",
+      2
+    ],
+    "cosmoem": [
+      "D",
+      2
+    ],
+    "solgaleo": [
+      "SS",
+      2
+    ],
+    "lunala": [
+      "SS",
+      2
+    ],
+    "necrozma": [
+      "B",
+      2
+    ],
+    "necrozma-dusk-mane": [
+      "SS",
+      2
+    ],
+    "necrozma-dusk": [
+      "SS",
+      2
+    ],
+    "necrozma-dawn-wings": [
+      "SS",
+      2
+    ],
+    "necrozma-dawn": [
+      "SS",
+      2
+    ],
+    "magearna": [
+      "SS",
+      2
+    ],
+    "magearna-original": [
+      "SS",
+      2
+    ],
+    "grookey": [
+      "D",
+      2
+    ],
+    "thwackey": [
       "C",
-      1
+      2
     ],
-    "rockruff": [
+    "rillaboom": [
+      "S",
+      2
+    ],
+    "scorbunny": [
       "D",
       2
     ],
-    "sprigatito": [
+    "raboot": [
       "D",
       2
     ],
-    "floragato": [
+    "cinderace": [
+      "S",
+      2
+    ],
+    "sobble": [
       "D",
       2
     ],
-    "fuecoco": [
+    "drizzile": [
       "D",
       2
     ],
-    "crocalor": [
+    "inteleon": [
+      "C",
+      2
+    ],
+    "skwovet": [
       "D",
       2
     ],
-    "quaxly": [
+    "greedent": [
       "D",
       2
     ],
-    "quaxwell": [
+    "rookidee": [
       "D",
       2
     ],
-    "pawmi": [
+    "corvisquire": [
       "D",
       2
     ],
-    "pawmo": [
+    "corviknight": [
+      "S",
+      2
+    ],
+    "chewtle": [
       "D",
       2
     ],
-    "tandemaus": [
+    "drednaw": [
+      "C",
+      2
+    ],
+    "rolycoly": [
       "D",
       2
     ],
-    "nacli": [
+    "carkol": [
       "D",
       2
     ],
-    "naclstack": [
+    "coalossal": [
       "D",
       2
     ],
-    "charcadet": [
+    "applin": [
       "D",
       2
     ],
-    "tinkatink": [
+    "flapple": [
       "D",
       2
     ],
-    "finizen": [
+    "appletun": [
       "D",
       2
     ],
-    "frigibax": [
+    "silicobra": [
       "D",
       2
     ],
-    "arctibax": [
+    "sandaconda": [
       "D",
       2
     ],
-    "gible": [
+    "cramorant": [
       "D",
       2
     ],
-    "gabite": [
+    "cramorant-gulping": [
       "D",
+      2
+    ],
+    "cramorant-gorging": [
+      "D",
+      2
+    ],
+    "arrokuda": [
+      "D",
+      2
+    ],
+    "barraskewda": [
+      "B",
+      2
+    ],
+    "toxel": [
+      "D",
+      2
+    ],
+    "toxtricity": [
+      "B",
+      2
+    ],
+    "toxtricity-low-key": [
+      "B",
+      2
+    ],
+    "sinistea": [
+      "D",
+      2
+    ],
+    "sinistea-antique": [
+      "D",
+      2
+    ],
+    "polteageist": [
+      "S",
+      2
+    ],
+    "polteageist-antique": [
+      "S",
+      2
+    ],
+    "hatenna": [
+      "D",
+      2
+    ],
+    "hattrem": [
+      "D",
+      2
+    ],
+    "hatterene": [
+      "S",
+      2
+    ],
+    "impidimp": [
+      "D",
+      2
+    ],
+    "morgrem": [
+      "D",
+      2
+    ],
+    "grimmsnarl": [
+      "D",
+      2
+    ],
+    "perrserker": [
+      "D",
+      2
+    ],
+    "milcery": [
+      "D",
+      2
+    ],
+    "alcremie": [
+      "D",
+      2
+    ],
+    "alcremie-ruby-cream": [
+      "D",
+      2
+    ],
+    "alcremie-matcha-cream": [
+      "D",
+      2
+    ],
+    "alcremie-mint-cream": [
+      "D",
+      2
+    ],
+    "alcremie-lemon-cream": [
+      "D",
+      2
+    ],
+    "alcremie-ruby-swirl": [
+      "D",
+      2
+    ],
+    "alcremie-caramel-swirl": [
+      "D",
+      2
+    ],
+    "alcremie-rainbow-swirl": [
+      "D",
+      2
+    ],
+    "falinks": [
+      "D",
+      2
+    ],
+    "pincurchin": [
+      "D",
+      2
+    ],
+    "snom": [
+      "D",
+      2
+    ],
+    "frosmoth": [
+      "D",
+      2
+    ],
+    "stonjourner": [
+      "D",
+      2
+    ],
+    "eiscue": [
+      "D",
+      2
+    ],
+    "eiscue-noice": [
+      "D",
+      2
+    ],
+    "indeedee": [
+      "C",
+      2
+    ],
+    "indeedee-f": [
+      "D",
+      2
+    ],
+    "indeedee-female": [
+      "D",
+      2
+    ],
+    "morpeko": [
+      "D",
+      2
+    ],
+    "morpeko-hangry": [
+      "D",
+      2
+    ],
+    "cufant": [
+      "D",
+      2
+    ],
+    "copperajah": [
+      "C",
+      2
+    ],
+    "duraludon": [
+      "C",
       2
     ],
     "dreepy": [
@@ -1081,79 +3061,179 @@
       "D",
       2
     ],
-    "larvesta": [
-      "D",
-      2
-    ],
-    "magikarp": [
-      "D",
-      2
-    ],
-    "gyarados-mega": [
+    "dragapult": [
       "S",
-      1
+      2
     ],
-    "wooper-paldea": [
+    "zacian": [
+      "SS",
+      2
+    ],
+    "zacian-crowned": [
+      "SS",
+      2
+    ],
+    "zamazenta": [
+      "S",
+      2
+    ],
+    "zamazenta-crowned": [
+      "SS",
+      2
+    ],
+    "eternatus": [
+      "SS",
+      2
+    ],
+    "kubfu": [
       "D",
       2
     ],
-    "zorua-hisui": [
-      "D",
+    "urshifu": [
+      "SS",
       2
     ],
-    "applin": [
-      "D",
+    "urshifu-rapid-strike": [
+      "SS",
       2
     ],
-    "dipplin": [
+    "zarude": [
+      "S",
+      2
+    ],
+    "zarude-dada": [
+      "S",
+      2
+    ],
+    "regieleki": [
+      "A",
+      2
+    ],
+    "regidrago": [
       "B",
-      1
+      2
     ],
-    "greavard": [
+    "glastrier": [
       "D",
       2
     ],
-    "shroodle": [
+    "spectrier": [
+      "SS",
+      2
+    ],
+    "calyrex": [
       "D",
       2
     ],
-    "maschiff": [
+    "calyrex-ice": [
+      "SS",
+      2
+    ],
+    "calyrex-ice-rider": [
+      "SS",
+      2
+    ],
+    "calyrex-shadow": [
+      "SS",
+      2
+    ],
+    "calyrex-shadow-rider": [
+      "SS",
+      2
+    ],
+    "wyrdeer": [
       "D",
       2
     ],
-    "nymble": [
+    "kleavor": [
+      "B",
+      2
+    ],
+    "ursaluna": [
+      "S",
+      2
+    ],
+    "ursaluna-bloodmoon": [
+      "SS",
+      2
+    ],
+    "basculegion": [
+      "C",
+      2
+    ],
+    "basculegion-f": [
+      "B",
+      2
+    ],
+    "basculegion-female": [
+      "B",
+      2
+    ],
+    "sneasler": [
+      "SS",
+      2
+    ],
+    "overqwil": [
+      "C",
+      2
+    ],
+    "enamorus": [
+      "S",
+      2
+    ],
+    "enamorus-therian": [
+      "A",
+      2
+    ],
+    "sprigatito": [
       "D",
       2
     ],
-    "tadbulb": [
+    "floragato": [
       "D",
       2
     ],
-    "varoom": [
+    "meowscarada": [
+      "S",
+      2
+    ],
+    "fuecoco": [
       "D",
       2
     ],
-    "bramblin": [
+    "crocalor": [
       "D",
       2
     ],
-    "rellor": [
+    "skeledirge": [
+      "A",
+      2
+    ],
+    "quaxly": [
       "D",
       2
     ],
-    "flittle": [
+    "quaxwell": [
       "D",
       2
     ],
-    "smoliv": [
+    "quaquaval": [
+      "S",
+      2
+    ],
+    "lechonk": [
       "D",
       2
     ],
-    "toedscool": [
+    "oinkologne": [
       "D",
       2
     ],
-    "capsakid": [
+    "oinkologne-f": [
+      "D",
+      2
+    ],
+    "oinkologne-female": [
       "D",
       2
     ],
@@ -1165,19 +3245,411 @@
       "D",
       2
     ],
-    "lechonk": [
+    "nymble": [
       "D",
       2
     ],
-    "wattrel": [
+    "lokix": [
+      "A",
+      2
+    ],
+    "pawmi": [
       "D",
+      2
+    ],
+    "pawmo": [
+      "D",
+      2
+    ],
+    "pawmot": [
+      "D",
+      2
+    ],
+    "tandemaus": [
+      "D",
+      2
+    ],
+    "maushold": [
+      "B",
+      2
+    ],
+    "maushold-four": [
+      "B",
       2
     ],
     "fidough": [
       "D",
       2
     ],
-    "sinistea": [
+    "dachsbun": [
+      "D",
+      2
+    ],
+    "smoliv": [
+      "D",
+      2
+    ],
+    "dolliv": [
+      "D",
+      2
+    ],
+    "arboliva": [
+      "D",
+      2
+    ],
+    "squawkabilly": [
+      "D",
+      2
+    ],
+    "squawkabilly-blue": [
+      "D",
+      2
+    ],
+    "squawkabilly-yellow": [
+      "D",
+      2
+    ],
+    "squawkabilly-white": [
+      "D",
+      2
+    ],
+    "nacli": [
+      "D",
+      2
+    ],
+    "naclstack": [
+      "D",
+      2
+    ],
+    "garganacl": [
+      "S",
+      2
+    ],
+    "charcadet": [
+      "D",
+      2
+    ],
+    "armarouge": [
+      "A",
+      2
+    ],
+    "ceruledge": [
+      "S",
+      2
+    ],
+    "tadbulb": [
+      "D",
+      2
+    ],
+    "bellibolt": [
+      "C",
+      2
+    ],
+    "wattrel": [
+      "D",
+      2
+    ],
+    "kilowattrel": [
+      "C",
+      2
+    ],
+    "maschiff": [
+      "D",
+      2
+    ],
+    "mabosstiff": [
+      "D",
+      2
+    ],
+    "shroodle": [
+      "D",
+      2
+    ],
+    "grafaiai": [
+      "C",
+      2
+    ],
+    "bramblin": [
+      "D",
+      2
+    ],
+    "brambleghast": [
+      "C",
+      2
+    ],
+    "toedscool": [
+      "D",
+      2
+    ],
+    "toedscruel": [
+      "D",
+      2
+    ],
+    "klawf": [
+      "D",
+      2
+    ],
+    "capsakid": [
+      "D",
+      2
+    ],
+    "scovillain": [
+      "D",
+      2
+    ],
+    "rellor": [
+      "D",
+      2
+    ],
+    "rabsca": [
+      "D",
+      2
+    ],
+    "flittle": [
+      "D",
+      2
+    ],
+    "espathra": [
+      "SS",
+      2
+    ],
+    "tinkatink": [
+      "D",
+      2
+    ],
+    "tinkatuff": [
+      "D",
+      2
+    ],
+    "tinkaton": [
+      "A",
+      2
+    ],
+    "wiglett": [
+      "D",
+      2
+    ],
+    "wugtrio": [
+      "D",
+      2
+    ],
+    "bombirdier": [
+      "D",
+      2
+    ],
+    "finizen": [
+      "D",
+      2
+    ],
+    "palafin": [
+      "SS",
+      2
+    ],
+    "palafin-hero": [
+      "SS",
+      2
+    ],
+    "varoom": [
+      "D",
+      2
+    ],
+    "revavroom": [
+      "A",
+      2
+    ],
+    "cyclizar": [
+      "B",
+      2
+    ],
+    "orthworm": [
+      "D",
+      2
+    ],
+    "glimmet": [
+      "D",
+      2
+    ],
+    "glimmora": [
+      "S",
+      2
+    ],
+    "greavard": [
+      "D",
+      2
+    ],
+    "houndstone": [
+      "C",
+      2
+    ],
+    "flamigo": [
+      "C",
+      2
+    ],
+    "cetoddle": [
+      "D",
+      2
+    ],
+    "cetitan": [
+      "B",
+      2
+    ],
+    "veluza": [
+      "D",
+      2
+    ],
+    "dondozo": [
+      "S",
+      2
+    ],
+    "tatsugiri": [
+      "D",
+      2
+    ],
+    "tatsugiri-droopy": [
+      "D",
+      2
+    ],
+    "tatsugiri-stretchy": [
+      "D",
+      2
+    ],
+    "annihilape": [
+      "SS",
+      2
+    ],
+    "clodsire": [
+      "A",
+      2
+    ],
+    "farigiraf": [
+      "D",
+      2
+    ],
+    "dudunsparce": [
+      "C",
+      2
+    ],
+    "dudunsparce-three-segment": [
+      "C",
+      2
+    ],
+    "kingambit": [
+      "S",
+      2
+    ],
+    "great-tusk": [
+      "S",
+      2
+    ],
+    "scream-tail": [
+      "C",
+      2
+    ],
+    "brute-bonnet": [
+      "D",
+      2
+    ],
+    "flutter-mane": [
+      "SS",
+      2
+    ],
+    "slither-wing": [
+      "A",
+      2
+    ],
+    "sandy-shocks": [
+      "A",
+      2
+    ],
+    "iron-treads": [
+      "S",
+      2
+    ],
+    "iron-bundle": [
+      "SS",
+      2
+    ],
+    "iron-hands": [
+      "S",
+      2
+    ],
+    "iron-jugulis": [
+      "A",
+      2
+    ],
+    "iron-moth": [
+      "S",
+      2
+    ],
+    "iron-thorns": [
+      "B",
+      2
+    ],
+    "frigibax": [
+      "D",
+      2
+    ],
+    "arctibax": [
+      "D",
+      2
+    ],
+    "baxcalibur": [
+      "SS",
+      2
+    ],
+    "gimmighoul": [
+      "D",
+      2
+    ],
+    "gimmighoul-roaming": [
+      "D",
+      2
+    ],
+    "gholdengo": [
+      "S",
+      2
+    ],
+    "wo-chien": [
+      "D",
+      2
+    ],
+    "chien-pao": [
+      "SS",
+      2
+    ],
+    "ting-lu": [
+      "S",
+      2
+    ],
+    "chi-yu": [
+      "SS",
+      2
+    ],
+    "roaring-moon": [
+      "SS",
+      2
+    ],
+    "iron-valiant": [
+      "S",
+      2
+    ],
+    "koraidon": [
+      "SS",
+      2
+    ],
+    "miraidon": [
+      "SS",
+      2
+    ],
+    "walking-wake": [
+      "S",
+      2
+    ],
+    "iron-leaves": [
+      "A",
+      2
+    ],
+    "dipplin": [
       "D",
       2
     ],
@@ -1185,24 +3657,112 @@
       "D",
       2
     ],
-    "shuckle": [
-      "C",
-      1
-    ],
-    "delibird": [
+    "poltchageist-artisan": [
       "D",
       2
     ],
-    "unown": [
-      "D",
+    "sinistcha": [
+      "A",
       2
     ],
-    "wobbuffet": [
-      "C",
-      1
+    "sinistcha-masterpiece": [
+      "A",
+      2
     ],
-    "dunsparce": [
-      "D",
+    "okidogi": [
+      "S",
+      2
+    ],
+    "munkidori": [
+      "C",
+      2
+    ],
+    "fezandipiti": [
+      "A",
+      2
+    ],
+    "ogerpon": [
+      "S",
+      2
+    ],
+    "ogerpon-wellspring": [
+      "S",
+      2
+    ],
+    "ogerpon-wellspring-mask": [
+      "S",
+      2
+    ],
+    "ogerpon-hearthflame": [
+      "SS",
+      2
+    ],
+    "ogerpon-hearthflame-mask": [
+      "SS",
+      2
+    ],
+    "ogerpon-cornerstone": [
+      "S",
+      2
+    ],
+    "ogerpon-cornerstone-mask": [
+      "S",
+      2
+    ],
+    "ogerpon-teal-tera": [
+      "S",
+      2
+    ],
+    "ogerpon-wellspring-tera": [
+      "S",
+      2
+    ],
+    "ogerpon-hearthflame-tera": [
+      "SS",
+      2
+    ],
+    "ogerpon-cornerstone-tera": [
+      "S",
+      2
+    ],
+    "archaludon": [
+      "SS",
+      2
+    ],
+    "hydrapple": [
+      "A",
+      2
+    ],
+    "gouging-fire": [
+      "SS",
+      2
+    ],
+    "raging-bolt": [
+      "S",
+      2
+    ],
+    "iron-boulder": [
+      "S",
+      2
+    ],
+    "iron-crown": [
+      "S",
+      2
+    ],
+    "terapagos": [
+      "SS",
+      2
+    ],
+    "terapagos-terastal": [
+      "SS",
+      2
+    ],
+    "terapagos-stellar": [
+      "SS",
+      2
+    ],
+    "pecharunt": [
+      "S",
       2
     ]
   }

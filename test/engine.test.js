@@ -134,10 +134,14 @@ var FLUTTER_MANE = mon({
   stats: [55, 55, 55, 135, 135, 135]
 });
 
-/* Pokémon absent de data/tiers.js → tier inconnu. */
+/* Pokémon absent de data/tiers.js → tier inconnu.
+ *
+ * Papilusion est un vrai Pokémon, mais indisponible en Génération 9 : Smogon
+ * ne lui attribue donc aucun tier, et il n'apparaît pas dans la table. C'est
+ * le cas « tier inconnu » réaliste — ~292 espèces sont dans cette situation. */
 var UNKNOWN_TIER_MON = mon({
-  slug: 'stonjourner', frName: 'Dolman', types: ['rock'],
-  stats: [100, 125, 135, 20, 20, 70]
+  slug: 'butterfree', frName: 'Papilusion', types: ['bug', 'flying'],
+  stats: [60, 45, 50, 90, 80, 70]
 });
 
 var BASE_TEAM = [MEOWSCARADA, SKELEDIRGE, QUAQUAVAL, GARCHOMP, CORVIKNIGHT, KINGAMBIT];
@@ -209,6 +213,15 @@ test('un tier inconnu bloque toute recommandation de remplacement', function () 
     assert.ok(c.blockers.some(function (b) { return b.code === 'tier-inconnu'; }));
   });
   assert.strictEqual(result.headline.status, 'non-recommande');
+});
+
+test('un Pokémon indisponible en Gen 9 reste sans tier (donc sans recommandation)', function () {
+  var table = globalThis.POKESTATS_TIERS.entries;
+  assert.strictEqual(table.butterfree, undefined,
+    'Papilusion n’est pas jouable en Génération 9 : il ne doit avoir aucun tier');
+  var info = analysis.tierOf(UNKNOWN_TIER_MON);
+  assert.strictEqual(info.known, false);
+  assert.strictEqual(info.trusted, false);
 });
 
 test('un candidat de tier inférieur n’est jamais recommandé', function () {
@@ -661,6 +674,55 @@ test('toutes les entrées de tiers.js sont valides', function () {
     assert.ok(e[1] === 1 || e[1] === 2, 'confiance invalide pour ' + slug);
     assert.strictEqual(slug, slug.toLowerCase(), 'identifiant non normalisé : ' + slug);
     assert.ok(/^[a-z0-9-]+$/.test(slug), 'identifiant non conforme : ' + slug);
+  });
+});
+
+test('les données embarquées déclarent une provenance vérifiable', function () {
+  var tiers = globalThis.POKESTATS_TIERS.meta;
+  require(path.join(__dirname, '..', 'data', 'names-fr.js'));
+  var names = globalThis.POKESTATS_NAMES_FR.meta;
+
+  [['tiers.js', tiers], ['names-fr.js', names]].forEach(function (pair) {
+    assert.ok(/^vérifié/.test(pair[1].provenance),
+      pair[0] + ' doit déclarer une provenance vérifiée, pas « saisi de mémoire »');
+    assert.ok(/@?[\w@/-]+@\d+\.\d+\.\d+/.test(pair[1].source),
+      pair[0] + ' doit citer la version exacte de sa source : ' + pair[1].source);
+  });
+});
+
+test('la table des types des tests est bien celle de l’application', function () {
+  require(path.join(__dirname, '..', 'data', 'type-chart.js'));
+  var shipped = globalThis.POKESTATS_TYPE_CHART;
+  assert.strictEqual(fixture.TYPES.length, 18, '18 types de combat attendus');
+  assert.deepStrictEqual(fixture.TYPES, shipped.types,
+    'les tests doivent utiliser exactement la table livrée, pas une copie');
+  assert.ok(/^vérifié/.test(shipped.meta.provenance));
+});
+
+test('chaque identifiant de tiers.js est bien formé', function () {
+  var entries = globalThis.POKESTATS_TIERS.entries;
+  var slugs = Object.keys(entries);
+  assert.ok(slugs.length > 800, 'couverture attendue : plus de 800 entrées, vu ' + slugs.length);
+  slugs.forEach(function (slug) {
+    assert.ok(/^[a-z0-9-]+$/.test(slug), 'identifiant non conforme : ' + slug);
+    assert.strictEqual(entries[slug][1], 2,
+      'toute entrée générée doit être de confiance haute : ' + slug);
+  });
+});
+
+test('les symboles de genre produisent des identifiants PokéAPI valides', function () {
+  require(path.join(__dirname, '..', 'data', 'names-fr.js'));
+  var seed = globalThis.POKESTATS_NAMES_FR.seed;
+
+  /* Nidoran♀ et Nidoran♂ sont deux espèces distinctes. Si les symboles ne sont
+   * pas convertis, on obtient « nidoran♀ » — un identifiant que PokéAPI ne
+   * connaît pas — et les deux se télescopent à la normalisation. */
+  assert.strictEqual(seed['Nidoran\u2640'], 'nidoran-f');
+  assert.strictEqual(seed['Nidoran\u2642'], 'nidoran-m');
+
+  Object.keys(seed).forEach(function (label) {
+    assert.ok(/^[a-z0-9-]+$/.test(seed[label]),
+      'identifiant non conforme pour « ' + label + ' » : ' + seed[label]);
   });
 });
 

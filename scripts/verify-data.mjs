@@ -1,30 +1,37 @@
-#!/usr/bin/env node
 /*
  * scripts/verify-data.mjs — Audit des données embarquées contre PokéAPI.
  * ======================================================================
  *
- * POURQUOI CE SCRIPT EXISTE
- * -------------------------
- * Deux fichiers de ce dépôt ne sont pas récupérés à l'exécution :
- *   data/tiers.js      (viabilité compétitive)
- *   data/names-fr.js   (index de secours des noms français)
+ * CE QUE CE SCRIPT VÉRIFIE, ET POURQUOI
+ * -------------------------------------
+ * Les fichiers data/*.js ne sont plus saisis à la main : ils sont générés par
+ * scripts/build-data.mjs depuis deux paquets npm épinglés (@pkmn/dex et
+ * pokemon). Leur contenu est donc fiable par construction.
  *
- * Ils ont été saisis à la main. Plutôt que de demander de leur faire
- * confiance, ce script les confronte à PokéAPI et signale chaque écart.
+ * Il reste malgré tout un point de jonction fragile : la conversion d'un nom
+ * anglais vers un IDENTIFIANT PokéAPI. Elle est mécanique
+ * (« Great Tusk » → « great-tusk ») et couvre l'immense majorité des cas, mais
+ * PokéAPI nomme certaines formes alternatives autrement que Pokémon Showdown
+ * (« Calyrex-Ice » contre « calyrex-ice-rider »). Une table d'alias corrige les
+ * divergences connues — ce script est là pour trouver celles qui restent.
  *
- * CE QU'IL VÉRIFIE
- * ----------------
- *   1. Chaque identifiant de data/tiers.js existe bien dans PokéAPI.
- *      → détecte les identifiants inventés, mal orthographiés ou obsolètes.
- *   2. Chaque nom français de data/names-fr.js correspond bien, dans PokéAPI,
- *      au nom français officiel de l'espèce visée.
- *      → détecte les traductions erronées.
+ * Il signale donc :
+ *   1. tout identifiant de data/tiers.js qui n'existe pas dans PokéAPI ;
+ *   2. tout nom français de data/names-fr.js dont l'identifiant est introuvable,
+ *      ou dont PokéAPI donne un nom français différent.
+ *
+ * CONSÉQUENCE D'UN ÉCART
+ * ----------------------
+ * Aucune, sur la sûreté : un identifiant qui ne correspond à rien n'est jamais
+ * consulté, et le Pokémon concerné retombe sur « tier inconnu » — ce qui
+ * interdit toute recommandation de remplacement. Un écart dégrade la couverture
+ * de l'outil, jamais sa fiabilité.
  *
  * CE QU'IL NE PEUT PAS VÉRIFIER
  * -----------------------------
- *   Le TIER lui-même. PokéAPI n'expose aucune notion de viabilité : c'est une
- *   donnée communautaire. Pour la vérifier, il faut la régénérer depuis une
- *   source structurée :  npm run build:tiers
+ * Le TIER lui-même. PokéAPI n'expose aucune notion de viabilité : c'est une
+ * donnée communautaire. Sa source est @pkmn/dex, dont la version exacte est
+ * inscrite dans data/tiers.js (champ meta.source).
  *
  * USAGE
  * -----
@@ -33,7 +40,8 @@
  *   node scripts/verify-data.mjs --tiers    # identifiants de tiers uniquement
  *   node scripts/verify-data.mjs --json     # sortie machine
  *
- * Code de sortie 1 si au moins un écart est détecté.
+ * Code de sortie 1 si au moins un écart est détecté, 2 si PokéAPI est
+ * injoignable.
  */
 
 import { fileURLToPath } from 'node:url';
@@ -52,6 +60,8 @@ function normalize(value) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u2640/g, 'f')
+    .replace(/\u2642/g, 'm')
     .replace(/[^a-z0-9]+/g, '');
 }
 
@@ -201,9 +211,12 @@ async function main() {
     if (out.tiers) report('Identifiants de data/tiers.js', out.tiers);
     if (out.names) report('Noms français de data/names-fr.js', out.names);
     console.log(
-      '\nRappel : ce script ne peut PAS vérifier les TIERS eux-mêmes ' +
-      '(PokéAPI n\'expose pas cette notion).\n' +
-      'Pour cela : npm run build:tiers\n'
+      '\nRappel : ce script ne peut PAS vérifier les TIERS eux-mêmes — PokéAPI\n' +
+      'n\'expose pas cette notion. Leur source est @pkmn/dex, dont la version\n' +
+      'exacte figure dans data/tiers.js (meta.source).\n\n' +
+      'Un écart signalé ci-dessus dégrade la couverture de l\'outil, jamais sa\n' +
+      'fiabilité : un identifiant inconnu retombe sur « tier inconnu », ce qui\n' +
+      'interdit toute recommandation.\n'
     );
   }
 

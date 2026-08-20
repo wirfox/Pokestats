@@ -131,18 +131,16 @@
 
     <p class="fineprint">
       <strong>Fiabilité des données —</strong> les statistiques de base, types,
-      talents, chaînes d'évolution, noms officiels et la table d'efficacité des
-      types sont récupérés <em>en direct</em> depuis PokéAPI&nbsp;: rien n'est
-      stocké dans ce site, donc rien ne peut être périmé ou inventé.
-      En revanche, les <strong>tiers de viabilité</strong>
-      (<code>data/tiers.js</code>) sont un instantané saisi à la main, <em>non
-      extrait</em> des tier lists publiques citées&nbsp;: traite-les comme une
-      indication, pas comme une vérité. La commande
-      <code>npm run build:tiers</code> les régénère depuis une source
-      structurée, et <code>npm run verify:data</code> audite les données
-      embarquées contre PokéAPI. Détails et limites dans le
-      <code>README.md</code>. Lorsqu'une information manque, l'outil le signale
-      et s'abstient de conclure plutôt que de deviner.
+      talents, chaînes d'évolution et noms officiels sont récupérés <em>en
+      direct</em> depuis PokéAPI&nbsp;: rien n'est stocké dans ce site, donc rien
+      ne peut être périmé. Les <strong>tiers de viabilité</strong> proviennent du
+      paquet <code>@pkmn/dex</code> (données Pokémon Showdown, référence de
+      Smogon) et la <strong>table des types</strong> de PokéAPI, avec ce même
+      paquet en repli hors ligne. Aucune donnée de ce dépôt n'est saisie à la
+      main&nbsp;: chaque fichier cite la version exacte dont il est issu, et
+      <code>npm run build:data</code> les régénère à l'identique. Un Pokémon
+      indisponible en Génération 9 n'a volontairement aucun tier&nbsp;: l'outil
+      le signale et s'abstient de conclure plutôt que de deviner.
     </p>
   </section>
 
@@ -161,6 +159,7 @@
 <!-- Données embarquées (chargées avant les scripts qui les consomment) -->
 <script src="data/tiers.js"></script>
 <script src="data/names-fr.js"></script>
+<script src="data/type-chart.js"></script>
 
 <!-- Couches applicatives, de la plus basse à la plus haute -->
 <script src="js/api.js"></script>

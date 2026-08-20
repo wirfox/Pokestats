@@ -21,7 +21,7 @@
 
   /* Équipe d'exemple : une équipe de partie d'Écarlate / Violet plausible. */
   var EXAMPLE_TEAM = [
-    'Miascarade', 'Flambusard', 'Palmaval', 'Carchacrok', 'Corvaillus', 'Scalpereur'
+    'Miascarade', 'Flâmigator', 'Palmaval', 'Carchacrok', 'Corvaillus', 'Scalpereur'
   ];
 
   /* ------------------------------------------------------------------ */
@@ -463,9 +463,20 @@
     /* 2. Table des types : indispensable à l'analyse de couverture. */
     setStatus('Chargement de la table des types depuis PokéAPI…', 'loading');
     types.load().then(
-      function () {
+      function (result) {
         typeChartReady = true;
         hideGlobalError();
+        /* Le repli hors ligne permet de continuer, mais l'utilisateur doit
+         * savoir que les données de types ne viennent pas de PokéAPI. */
+        if (result && result.source === 'repli-hors-ligne') {
+          showGlobalError(
+            'PokéAPI est injoignable pour la table des types.',
+            ' L\'analyse continue avec la table vérifiée embarquée ' +
+            '(data/type-chart.js). Les statistiques et évolutions, elles, ' +
+            'nécessitent PokéAPI : elles resteront indisponibles tant que la ' +
+            'connexion n\'est pas rétablie.'
+          );
+        }
         updateStatusLine(names.status());
         renderTeamSummary();
         if (candidate.status === 'ok') runAnalysis();
@@ -496,8 +507,11 @@
 
   function updateStatusLine(nameStatus) {
     if (!typeChartReady) return;
+    var chartSource = types.source() === 'pokeapi'
+      ? 'table des types : PokéAPI'
+      : 'table des types : repli embarqué';
     setStatus(
-      'Données PokéAPI chargées · table des types à jour · ' +
+      'Données PokéAPI chargées · ' + chartSource + ' · ' +
       'index des noms : ' + nameStatus.source + ' (' + nameStatus.count + ' entrées)',
       'ready'
     );

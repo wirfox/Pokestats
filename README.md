@@ -182,68 +182,83 @@ L'asymétrie est volontaire : une donnée incertaine peut servir de garde-fou,
 jamais d'argument. Dans l'interface, un tier de confiance moyenne est signalé
 par le symbole `≈`.
 
-> ### ⚠️ Provenance réelle de cet instantané — à lire
->
-> **Ces 289 entrées n'ont été extraites d'aucun site.** Elles ont été saisies
-> à partir d'une connaissance générale des placements de viabilité Génération 9.
-> L'environnement dans lequel le projet a été écrit n'avait pas d'accès réseau
-> vers `game8.co`, `rankedboost.com`, `pikalytics.com` ni `smogon.com`.
->
-> Le champ `meta.provenance` du fichier le dit explicitement :
-> `"non vérifié — connaissance générale, à régénérer"`.
->
-> Les sites ci-dessous sont donc des références **recommandées pour recouper ou
-> régénérer** ces données — pas des sources dont elles proviennent :
->
-> - [Smogon University](https://www.smogon.com/) — placements de tiers Génération 9
-> - [Game8 — Best Pokemon Tier List (SV)](https://game8.co/games/Pokemon-Scarlet-Violet/archives/397587)
-> - [RankedBoost — Pokemon Scarlet & Violet Tier List](https://rankedboost.com/pokemon-scarlet-violet/best-pokemon-tier-list/)
-> - PropelRC — Ultimate Pokemon Tier List
-> - Rosenberry Rooms — Pokemon Tier List
-> - [Pikalytics](https://www.pikalytics.com/) — usage réel en VGC / Battle Stadium
->
-> **Avant tout usage sérieux**, régénère la table depuis une source structurée :
->
-> ```bash
-> npm run build:tiers     # Pokémon Showdown / Smogon, lisible par une machine
-> ```
->
-> Les Pokémon qui disparaîtraient de la table à cette occasion deviennent
-> « tier inconnu » — ce qui, par construction, rend l'outil *plus* prudent,
-> jamais moins.
+Sources de cette table :
+
+| | |
+| --- | --- |
+| **Source** | [`@pkmn/dex`](https://www.npmjs.com/package/@pkmn/dex), paquet npm à version exacte |
+| **Origine des données** | Pokémon Showdown, qui est la référence d'implémentation de [Smogon](https://www.smogon.com/) |
+| **Couverture** | 925 entrées, dont 178 formes alternatives |
+| **Régénérer** | `npm run build:tiers` |
+
+**Pourquoi un paquet npm plutôt qu'un site.** Bulbapédia, Poképédia, Serebii ou
+PokémonDB sont d'excellentes sources *humaines*, mais de mauvaises sources
+*machine* : leur HTML change sans préavis, il n'y a ni version ni somme de
+contrôle, et rien ne garantit qu'une régénération dans six mois donnera le même
+résultat. Un paquet npm épinglé donne exactement l'inverse — version exacte,
+contenu immuable, génération déterministe, et aucun réseau requis. C'est ce qui
+rend ces données **stables**.
+
+Correspondance appliquée entre les tiers Smogon et l'échelle de l'application :
+
+| Smogon | PokeStats | Effectif |
+| --- | --- | --- |
+| AG, Uber | `SS` | 75 |
+| OU, UUBL | `S` | 62 |
+| UU, RUBL | `A` | 55 |
+| RU, NUBL | `B` | 55 |
+| NU, PUBL | `C` | 52 |
+| PU, ZU, ZUBL, NFE, LC | `D` | le reste |
+| CAP, CAP LC, CAP NFE | *exclu* | Pokémon inventés par la communauté, absents du jeu |
+| Illegal | *exclu* | indisponible en Génération 9 |
+
+**~292 Pokémon réels n'ont volontairement aucun tier** : ceux qui ne sont pas
+jouables en Génération 9 (Papilusion, Roucarnage…). Smogon ne les classe pas,
+donc l'outil les traite comme « tier inconnu » et refuse toute recommandation
+les concernant. C'est le comportement voulu : on ne peut pas les mettre dans une
+équipe d'Écarlate / Violet de toute façon.
+
+Les sites suivants restent d'excellentes références pour **recouper** un
+placement à la main : [Smogon](https://www.smogon.com/),
+[Poképédia](https://www.pokepedia.fr/),
+[Bulbapedia](https://bulbapedia.bulbagarden.net/),
+[PokémonDB](https://pokemondb.net/), [Serebii](https://www.serebii.net/),
+[Pikalytics](https://www.pikalytics.com/) (usage VGC réel).
 
 ### Noms français
 
-[`data/names-fr.js`](data/names-fr.js) sert à traduire ce que tu tapes
-(« Rocabot ») en identifiant PokéAPI (`rockruff`). Ordre de résolution :
+[`data/names-fr.js`](data/names-fr.js) traduit ce que tu tapes (« Rocabot ») en
+identifiant PokéAPI (`rockruff`).
 
-1. Index complet construit en direct depuis PokéAPI (une requête GraphQL,
-   ~1025 espèces), mis en cache dans `localStorage`.
-2. Index de secours embarqué, si le premier échoue.
+| | |
+| --- | --- |
+| **Source** | [`pokemon`](https://www.npmjs.com/package/pokemon), paquet npm à version exacte |
+| **Couverture** | 1025 noms — l'intégralité du Pokédex national |
+| **Régénérer** | `npm run build:names` |
+
+Ordre de résolution d'une saisie :
+
+1. Index complet construit en direct depuis PokéAPI (une requête GraphQL), mis
+   en cache dans `localStorage`.
+2. L'index embarqué ci-dessus, si le premier échoue.
 3. La saisie brute comme identifiant — ce qui couvre nativement l'anglais
    (`rockruff`, `great-tusk`…).
 
-**Provenance :** comme la table de viabilité, ces 311 entrées ont été saisies de
-mémoire, pas extraites d'une source. Elles peuvent contenir des erreurs.
+**Garde-fou :** le nom affiché à l'écran provient *toujours* de PokéAPI, jamais
+de cet index. Et aucune analyse ne porte sur les noms — uniquement sur les
+données renvoyées par l'API. Une erreur de nom ne peut donc pas fausser une
+recommandation.
 
-**Deux garde-fous rendent ces erreurs bénignes :**
+### Table d'efficacité des types
 
-1. Le nom affiché à l'écran provient *toujours* de PokéAPI, jamais de cet index.
-   Une traduction erronée serait donc immédiatement visible : le nom affiché ne
-   correspondrait pas à ce que tu as tapé.
-2. Aucune analyse ne porte sur les noms — uniquement sur les données renvoyées
-   par l'API. Une erreur de nom ne peut pas fausser une recommandation, seulement
-   te faire afficher le mauvais Pokémon.
+Construite en priorité depuis PokéAPI (`/type/{nom}` → `damage_relations`).
+Si PokéAPI est injoignable, l'application bascule sur
+[`data/type-chart.js`](data/type-chart.js) — la même table, générée depuis
+`@pkmn/dex` — et le signale à l'écran. Sans ce repli, une panne de PokéAPI
+bloquerait toute l'analyse de couverture.
 
-**Et tu peux les auditer en une commande :**
-
-```bash
-npm run verify:data
-```
-
-Voir la section [Vérifier les données toi-même](#vérifier-les-données-toi-même).
-
----
+Les tests utilisent exactement ce fichier, et non une copie indépendante qui
+pourrait diverger.
 
 ## Comment la recommandation est calculée
 
@@ -405,11 +420,15 @@ injoignable.
 
 | Donnée | Provenance | Fiabilité |
 | --- | --- | --- |
-| Stats, types, talents, évolutions, table des types | PokéAPI, en direct | **Élevée** — rien n'est stocké, tout est refetché |
-| Noms affichés à l'écran | PokéAPI, en direct | **Élevée** |
-| Identifiants de `names-fr.js` | Saisis de mémoire | Moyenne — auditables via `verify:data`, sans effet sur l'analyse |
-| Tiers de `tiers.js` | Saisis de mémoire | **Faible tant que `build:tiers` n'a pas tourné** |
-| Table des types de `test/` | Saisie de mémoire | Tests uniquement — jamais utilisée en production |
+| Stats, types, talents, évolutions, noms affichés | PokéAPI, en direct | **Élevée** — rien n'est stocké, tout est refetché |
+| Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | **Élevée** — deux sources concordantes |
+| Tiers de viabilité (925) | `@pkmn/dex@0.10.11` (Showdown / Smogon) | **Élevée** — source structurée et versionnée |
+| Noms français (1025) | `pokemon@3.3.1` (Pokédex national) | **Élevée** — source structurée et versionnée |
+
+Aucune donnée du dépôt n'est saisie à la main. Chaque fichier de `data/` porte
+un champ `meta.provenance` et un champ `meta.source` citant la version exacte
+dont il est issu ; un test vérifie que ces champs sont présents et commencent
+bien par `vérifié`.
 
 ---
 
@@ -419,7 +438,7 @@ injoignable.
 npm test
 ```
 
-33 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+38 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -509,8 +528,9 @@ logique de décision en Node, sans navigateur.
    stats : rien de tout cela n'est modélisé.
 8. **Une connexion Internet est requise.** Sans PokéAPI, l'outil refuse
    d'analyser plutôt que de deviner.
-9. **L'instantané de tiers doit être régénéré** pour être pleinement fiable
-   (voir l'avertissement plus haut).
+9. **Les tiers évoluent avec le métagame.** `@pkmn/dex` est épinglé à une
+   version : relance `npm run build:tiers` après un `npm update` pour suivre
+   les reclassements de Smogon.
 
 Ces limites vont toutes dans le même sens : elles sont des raisons de considérer
 un « pas de changement recommandé » comme définitif, et un « remplacement
