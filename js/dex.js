@@ -29,9 +29,24 @@
     speed: 'Vitesse'
   };
 
-  /* Formes non obtenables en jeu (Méga-Évolutions, Dynamax, formes de raid) :
-   * les inclure fausserait l'analyse pour un joueur d'Écarlate / Violet. */
-  var UNPLAYABLE_FORM = /-(mega|mega-x|mega-y|gmax|totem|primal|starter|eternamax)$/;
+  /*
+   * Formes inexistantes en Écarlate / Violet.
+   *
+   * Ce sont des transformations temporaires d'autres jeux : Méga-Évolution,
+   * Dynamax/Gigantamax, formes Dominantes, Primo-Résurgence. Leur total de
+   * stats est très supérieur à la forme normale — les laisser passer ferait
+   * conseiller au joueur d'« entraîner » un Pokémon vers une forme qu'il ne
+   * pourra jamais obtenir.
+   *
+   * Le motif teste la PRÉSENCE du marqueur, pas la fin de l'identifiant :
+   * PokéAPI expose « garchomp-mega-z » en plus de « garchomp-mega », et un
+   * ancrage de fin laissait passer le premier (Carchacrok annoncé à 700 de BST
+   * au lieu de 600).
+   *
+   * Recensé sur les 1351 formes de PokéAPI : 97 méga, 34 gigamax, 12 dominantes,
+   * 2 primo, 1 eternamax, 2 « starter ».
+   */
+  var UNPLAYABLE_FORM = /-(mega|gmax|totem|primal|eternamax|starter)(-|$)/;
 
   function localizedName(entries, iso, fallback) {
     var found = (entries || []).filter(function (n) {
@@ -404,6 +419,7 @@
     STAT_FR: STAT_FR,
     bstOf: bstOf,
     conditionToFrench: conditionToFrench,
-    detailsForForm: detailsForForm
+    detailsForForm: detailsForForm,
+    UNPLAYABLE_FORM: UNPLAYABLE_FORM
   };
 })(typeof window !== 'undefined' ? window : globalThis);

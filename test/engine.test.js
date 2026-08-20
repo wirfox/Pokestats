@@ -727,6 +727,33 @@ test('chaque identifiant de tiers.js est bien formé', function () {
   });
 });
 
+test('les formes inexistantes en Écarlate/Violet sont écartées', function () {
+  require(path.join(__dirname, '..', 'js', 'names.js'));
+  require(path.join(__dirname, '..', 'js', 'dex.js'));
+  var motif = PokeStats.dex.UNPLAYABLE_FORM;
+
+  /* Méga-Évolutions, Dynamax, formes Dominantes : elles n'existent pas en
+   * Génération 9. Les laisser passer ferait conseiller d'entraîner un Pokémon
+   * vers une forme inatteignable — Carchacrok annoncé à 700 de BST au lieu
+   * de 600, parce que PokéAPI expose « garchomp-mega-z ». */
+  [
+    'garchomp-mega', 'garchomp-mega-z', 'charizard-mega-x', 'charizard-mega-y',
+    'venusaur-gmax', 'butterfree-gmax', 'raticate-totem-alola', 'gumshoos-totem',
+    'kyogre-primal', 'groudon-primal', 'eternatus-eternamax', 'pikachu-starter'
+  ].forEach(function (slug) {
+    assert.ok(motif.test(slug), 'devrait être écartée : ' + slug);
+  });
+
+  /* Formes légitimes : elles doivent passer. */
+  [
+    'garchomp', 'lycanroc-dusk', 'lycanroc-midnight', 'urshifu-rapid-strike',
+    'ogerpon-wellspring-mask', 'tauros-paldea-combat-breed', 'ninetales-alola',
+    'maushold-family-of-four', 'indeedee-female', 'toxtricity-low-key'
+  ].forEach(function (slug) {
+    assert.ok(!motif.test(slug), 'ne devrait pas être écartée : ' + slug);
+  });
+});
+
 test('le second avis Game8 est exposé sans influencer la décision', function () {
   var entries = globalThis.POKESTATS_TIERS.entries;
   var withSecond = Object.keys(entries).filter(function (s) {
