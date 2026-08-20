@@ -225,6 +225,30 @@ placement à la main : [Smogon](https://www.smogon.com/),
 [PokémonDB](https://pokemondb.net/), [Serebii](https://www.serebii.net/),
 [Pikalytics](https://www.pikalytics.com/) (usage VGC réel).
 
+### Second avis : la tier list Game8
+
+[`data/tiers-game8.json`](data/tiers-game8.json) contient la
+[tier list Game8 pour le Combat Classé](https://game8.co/games/Pokemon-Scarlet-Violet/archives/397587)
+(98 Pokémon), récupérée par `npm run build:game8`. Elle est affichée à côté du
+tier Smogon, dans l'infobulle du badge.
+
+> **Elle ne conditionne aucune décision — et c'est délibéré.**
+>
+> L'intuition de départ était : « si les deux listes divergent de deux crans,
+> la donnée est douteuse, abaissons la confiance ». Les chiffres l'ont
+> infirmée — **52 divergences sur 96**, ce qui n'est pas du bruit.
+>
+> La raison est structurelle. Le tier S de Game8 est peuplé de légendaires
+> restreints (Zacian, Groudon, Kyogre, Koraidon, Miraidon, les deux Sylveroy)
+> parce que le Combat Classé officiel les autorise ; le ladder singles de
+> Smogon les bannit. Dans un classement où figurent Miraidon et Calyrex, tout
+> Pokémon ordinaire descend mécaniquement d'un ou deux crans.
+>
+> Traiter ce décalage d'échelle comme un désaccord de fond aurait dégradé
+> 52 des Pokémon les plus pertinents sans rien corriger. Ce n'est pas de la
+> prudence, c'est un biais importé. Game8 reste donc un **contexte affiché**,
+> utile si tu joues en Combat Classé, jamais un critère de décision.
+
 ### Noms français
 
 [`data/names-fr.js`](data/names-fr.js) traduit ce que tu tapes (« Rocabot ») en
@@ -425,6 +449,8 @@ Dernier audit : **1866 entrées vérifiées contre PokéAPI, 0 écart.**
 | Noms français (1025) | PokéAPI GraphQL | 1025 | **0** |
 | Identifiants de tiers (841) | `@pkmn/dex@0.10.11`, filtrés sur PokéAPI | 841 | **0** |
 | Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | 18 types | — |
+| Second avis Game8 (98) | Game8, apparié sur PokéAPI | 98 | **0** non résolu |
+| Images des Pokémon | PokéAPI (artwork officiel 475×475) | testé en navigateur | — |
 
 Aucune donnée du dépôt n'est saisie à la main, et **aucun identifiant ne repose
 sur une supposition de nommage** : chaque clé de `data/tiers.js` a été

@@ -316,8 +316,51 @@ async function buildTiers() {
   const { formes, especes } = await fetchReferences();
   console.log(`    ${formes.size} formes et ${especes.size} espèces connues de PokéAPI`);
 
+  /* Second avis : la tier list Game8, si elle a été récupérée. */
+  let game8 = { entries: {}, meta: null };
+  try {
+    game8 = require('../data/tiers-game8.json');
+    console.log(`    second avis Game8 : ${Object.keys(game8.entries).length} entrées`);
+  } catch (e) {
+    console.log('    (data/tiers-game8.json absent — npm run build:game8 pour l\'ajouter)');
+  }
+
   const entries = {};
-  const stats = { retenus: 0, exclus: 0, formes: 0, formesIgnorees: 0, baseIntrouvable: 0 };
+  const stats = {
+    retenus: 0, exclus: 0, formes: 0, formesIgnorees: 0, baseIntrouvable: 0,
+    accord: 0, conflit: 0
+  };
+
+  /*
+   * SECOND AVIS : POURQUOI IL N'ABAISSE PAS LA CONFIANCE
+   * ----------------------------------------------------
+   * Première intuition, écartée : « si Smogon et Game8 divergent de deux
+   * crans, la donnée est douteuse, abaissons la confiance ». Les chiffres l'ont
+   * infirmée — 52 divergences sur 96, ce qui n'est pas du bruit mais un
+   * décalage systématique.
+   *
+   * La raison est structurelle. Le tier S de Game8 est peuplé de légendaires
+   * restreints (Zacian, Groudon, Kyogre, Koraidon, Miraidon, les deux
+   * Sylveroy) parce que le Combat Classé officiel les autorise ; le ladder
+   * singles de Smogon les bannit. Dans un classement où figurent Miraidon et
+   * Calyrex, tout Pokémon ordinaire descend mécaniquement d'un ou deux crans.
+   *
+   * Traiter ce décalage d'échelle comme un désaccord de fond aurait dégradé
+   * 52 des Pokémon les plus pertinents sans rien corriger : ce n'est pas de la
+   * prudence, c'est un biais importé.
+   *
+   * Game8 est donc conservé comme CONTEXTE AFFICHÉ — utile au joueur qui
+   * pratique le Combat Classé — mais ne conditionne aucune décision. La
+   * confiance reste haute : elle qualifie la fiabilité de la source Smogon,
+   * pas l'accord entre deux barèmes incomparables.
+   */
+  function confidenceFor(slug, tier) {
+    const other = game8.entries[slug];
+    if (!other) return { confiance: 2, avis: null };
+    const gap = Math.abs(SCALE[tier].score - SCALE[other].score);
+    if (gap >= 2) stats.conflit += 1; else stats.accord += 1;
+    return { confiance: 2, avis: other };
+  }
 
   /* Nom anglais officiel par numéro de Pokédex : c'est lui qui donne
    * l'identifiant d'espèce PokéAPI, et non le nom de forme Showdown. */
@@ -339,7 +382,8 @@ async function buildTiers() {
       /* Validation contre les ESPÈCES : c'est le niveau auquel le moteur
        * retombe quand une forme précise n'a pas d'entrée. */
       if (!especes.has(slug)) { stats.baseIntrouvable += 1; continue; }
-      entries[slug] = [tier, 2];
+      const c = confidenceFor(slug, tier);
+      entries[slug] = c.avis ? [tier, c.confiance, c.avis] : [tier, c.confiance];
       stats.retenus += 1;
     } else {
       /* Forme alternative : on ne retient QUE si PokéAPI connaît réellement
@@ -347,7 +391,8 @@ async function buildTiers() {
        * tier, et le moteur y retombe naturellement. */
       const slug = resolveFormeSlug(species.name, formes);
       if (!slug) { stats.formesIgnorees += 1; continue; }
-      entries[slug] = [tier, 2];
+      const c = confidenceFor(slug, tier);
+      entries[slug] = c.avis ? [tier, c.confiance, c.avis] : [tier, c.confiance];
       stats.formes += 1;
       stats.retenus += 1;
     }
@@ -359,6 +404,24 @@ async function buildTiers() {
     provenance: 'vérifié — généré depuis le paquet npm « @pkmn/dex »',
     source: `@pkmn/dex@${VERSIONS['@pkmn/dex']} — placements de tiers Génération ${GEN} ` +
       '(données Pokémon Showdown, référence de Smogon)',
+    secondAvis: game8.meta
+      ? {
+          source: game8.meta.source,
+          titre: game8.meta.title,
+          pageMiseAJour: game8.meta.pageUpdated,
+          couverture: Object.keys(game8.entries).length,
+          concordants: stats.accord,
+          enConflit: stats.conflit,
+          role:
+            'Contexte affiché uniquement. Ce second avis ne conditionne aucune ' +
+            'décision du moteur : les deux listes classent pour des formats ' +
+            'différents et leurs échelles ne sont pas comparables cran pour cran.',
+          ecartsObserves:
+            `${stats.accord} à moins de 2 crans, ${stats.conflit} plus éloignés — ` +
+            'reflet du décalage d’échelle, pas d’une erreur de données.',
+          avertissement: game8.meta.caveat
+        }
+      : null,
     slugsVerifies:
       'Chaque identifiant a été confronté à la liste des formes réellement ' +
       'connues de PokéAPI au moment de la génération : aucune entrée ne repose ' +
@@ -392,7 +455,7 @@ async function buildTiers() {
  *   Régénérer   : npm run build:tiers
  *   Entrées     : ${Object.keys(entries).length}
  *
- * Schéma : "<slug-pokeapi>": ["<TIER>", <confiance>]
+ * Schéma : "<slug-pokeapi>": ["<TIER Smogon>", <confiance>, "<TIER Game8>"?]
  *   confiance 2 = haute   → peut justifier une recommandation
  *   confiance 1 = moyenne → peut seulement bloquer une recommandation
  *
@@ -434,6 +497,12 @@ ${body}
     `${stats.formesIgnorees} formes sans équivalent PokéAPI ignorées, ` +
     `${stats.baseIntrouvable} espèces introuvables`
   );
+  if (stats.accord + stats.conflit) {
+    console.log(
+      `    second avis Game8 : ${stats.accord} concordants, ` +
+      `${stats.conflit} plus éloignés (décalage d'échelle attendu, informatif)`
+    );
+  }
 }
 
 /* ================================================================== */

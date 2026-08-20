@@ -83,12 +83,18 @@
       if (key && table.entries[key]) {
         var entry = table.entries[key];
         var scaleEntry = table.scale[entry[0]];
+        var second = entry[2] || null;   // tier Game8, quand il existe
         return {
           known: true,
           tier: entry[0],
           score: scaleEntry ? scaleEntry.score : null,
           confidence: entry[1],
           trusted: entry[1] >= 2,
+          /* Second avis (Game8, Combat Classé). Un désaccord marqué avec
+           * Smogon a déjà fait tomber `confidence` à 1 à la génération : le
+           * tier ne peut alors plus justifier une recommandation. */
+          secondOpinion: second,
+          disagrees: !!second && entry[1] < 2,
           matchedOn: key,
           desc: scaleEntry ? scaleEntry.desc : ''
         };
@@ -96,7 +102,8 @@
     }
     return {
       known: false, tier: null, score: null,
-      confidence: 0, trusted: false, matchedOn: null, desc: ''
+      confidence: 0, trusted: false, secondOpinion: null, disagrees: false,
+      matchedOn: null, desc: ''
     };
   }
 
@@ -389,9 +396,12 @@
      * jamais comme un indice décisif. */
     var supporting = [];
     if (tc.known && tm.known && tc.score > tm.score && !tierJustifiable) {
+      var raison = tc.disagrees || tm.disagrees
+        ? 'les deux tier lists de référence sont en désaccord marqué sur ce Pokémon'
+        : 'la donnée de viabilité est de confiance moyenne';
       supporting.push(
-        'Tier apparemment supérieur (' + tm.tier + ' → ' + tc.tier + '), mais la donnée ' +
-        'de viabilité est de confiance moyenne : elle n’est pas retenue comme preuve.'
+        'Tier apparemment supérieur (' + tm.tier + ' → ' + tc.tier + '), mais ' +
+        raison + ' : il n’est pas retenu comme preuve.'
       );
     }
 

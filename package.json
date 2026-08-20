@@ -11,7 +11,8 @@
     "build:names": "node scripts/build-data.mjs --names",
     "serve": "npx --yes http-server . -p 8080 -c-1",
     "verify:data": "node scripts/verify-data.mjs",
-    "build:types": "node scripts/build-data.mjs --types"
+    "build:types": "node scripts/build-data.mjs --types",
+    "build:game8": "node scripts/fetch-game8.mjs"
   },
   "keywords": [
     "pokemon",

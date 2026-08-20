@@ -669,9 +669,15 @@ test('toutes les entrées de tiers.js sont valides', function () {
   var validTiers = Object.keys(table.scale);
   Object.keys(table.entries).forEach(function (slug) {
     var e = table.entries[slug];
-    assert.ok(Array.isArray(e) && e.length === 2, 'format invalide : ' + slug);
+    /* [tier Smogon, confiance] — plus éventuellement [2] le tier Game8. */
+    assert.ok(Array.isArray(e) && (e.length === 2 || e.length === 3),
+      'format invalide : ' + slug);
     assert.ok(validTiers.indexOf(e[0]) !== -1, 'tier inconnu « ' + e[0] + ' » pour ' + slug);
     assert.ok(e[1] === 1 || e[1] === 2, 'confiance invalide pour ' + slug);
+    if (e.length === 3) {
+      assert.ok(validTiers.indexOf(e[2]) !== -1,
+        'second avis invalide « ' + e[2] + ' » pour ' + slug);
+    }
     assert.strictEqual(slug, slug.toLowerCase(), 'identifiant non normalisé : ' + slug);
     assert.ok(/^[a-z0-9-]+$/.test(slug), 'identifiant non conforme : ' + slug);
   });
@@ -712,7 +718,31 @@ test('chaque identifiant de tiers.js est bien formé', function () {
     assert.ok(/^[a-z0-9-]+$/.test(slug), 'identifiant non conforme : ' + slug);
     assert.strictEqual(entries[slug][1], 2,
       'toute entrée générée doit être de confiance haute : ' + slug);
+    /* Le second avis est informatif : il ne doit jamais faire varier la
+     * confiance, sous peine d'importer le biais d'échelle de Game8. */
+    if (entries[slug].length === 3) {
+      assert.strictEqual(entries[slug][1], 2,
+        'le second avis ne doit pas modifier la confiance : ' + slug);
+    }
   });
+});
+
+test('le second avis Game8 est exposé sans influencer la décision', function () {
+  var entries = globalThis.POKESTATS_TIERS.entries;
+  var withSecond = Object.keys(entries).filter(function (s) {
+    return entries[s].length === 3;
+  });
+  assert.ok(withSecond.length > 50,
+    'la tier list Game8 doit couvrir plusieurs dizaines de Pokémon, vu ' + withSecond.length);
+
+  /* Un désaccord marqué entre les deux listes ne doit pas dégrader la donnée :
+   * Game8 classe pour le Combat Classé (légendaires restreints autorisés),
+   * Smogon pour son ladder singles. Les échelles ne sont pas comparables. */
+  var chomp = analysis.tierOf(GARCHOMP);
+  assert.strictEqual(chomp.known, true);
+  assert.strictEqual(chomp.trusted, true,
+    'un écart d’échelle avec Game8 ne doit pas rendre Carchacrok « peu fiable »');
+  assert.ok(chomp.secondOpinion, 'le second avis doit être exposé pour l’affichage');
 });
 
 test('les symboles de genre produisent des identifiants PokéAPI valides', function () {

@@ -157,6 +157,52 @@
     return acc;
   }
 
+  /**
+   * Une condition d'évolution correspond-elle à une forme précise ?
+   *
+   * PokéAPI attache les conditions d'évolution à l'ESPÈCE, pas à la forme :
+   * la chaîne de Rocabot porte les trois conditions de Lougaroc (jour, nuit,
+   * crépuscule) sur un unique nœud. Les afficher toutes sur chaque forme est
+   * trompeur — Lougaroc Diurne n'apparaît pas la nuit.
+   *
+   * On rapproche donc chaque condition de la forme qu'elle produit, à partir
+   * des seuls champs qui les distinguent (moment de la journée, genre). En cas
+   * d'ambiguïté, on retombe sur l'affichage de toutes les conditions : mieux
+   * vaut trop d'information qu'une information fausse.
+   */
+  function detailMatchesForm(detail, formSuffix) {
+    var suffix = String(formSuffix || '').toLowerCase();
+    if (!suffix) return false;
+
+    var tod = detail.time_of_day;
+    if (tod) {
+      /* « midnight » contient « night », « midday » contient « day » : on teste
+       * du plus spécifique au moins spécifique pour éviter les faux positifs. */
+      if (tod === 'dusk') return suffix.indexOf('dusk') !== -1;
+      if (tod === 'night') return suffix.indexOf('night') !== -1;
+      if (tod === 'day') {
+        return suffix.indexOf('day') !== -1 && suffix.indexOf('night') === -1;
+      }
+    }
+    if (detail.gender === 1) return suffix.indexOf('female') !== -1;
+    if (detail.gender === 2) {
+      return suffix.indexOf('male') !== -1 && suffix.indexOf('female') === -1;
+    }
+    return false;
+  }
+
+  /**
+   * Conditions à afficher pour une forme donnée.
+   * @returns {Array} le sous-ensemble pertinent, ou tout si indécidable
+   */
+  function detailsForForm(details, formSuffix) {
+    if (!details || details.length <= 1) return details || [];
+    var matching = details.filter(function (d) {
+      return detailMatchesForm(d, formSuffix);
+    });
+    return matching.length === 1 ? matching : details;
+  }
+
   /** Traduit en français la condition d'évolution renvoyée par PokéAPI. */
   function conditionToFrench(details) {
     if (!details || !details.length) return 'Condition inconnue';
@@ -321,7 +367,11 @@
                 return api.getSpecies(desc.speciesSlug).then(function (descSpecies) {
                   return formsOfSpecies(descSpecies).then(function (forms) {
                     return forms.map(function (f) {
-                      f.evolutionCondition = conditionToFrench(desc.details);
+                      /* Condition propre à CETTE forme quand on peut la
+                       * distinguer (Lougaroc Diurne / Nocturne / Crépusculaire). */
+                      f.evolutionCondition = conditionToFrench(
+                        detailsForForm(desc.details, f.formSuffix)
+                      );
                       f.evolutionDepth = desc.depth;
                       f.isTerminal = desc.isTerminal;
                       return f;
@@ -353,6 +403,7 @@
     STAT_KEYS: STAT_KEYS,
     STAT_FR: STAT_FR,
     bstOf: bstOf,
-    conditionToFrench: conditionToFrench
+    conditionToFrench: conditionToFrench,
+    detailsForForm: detailsForForm
   };
 })(typeof window !== 'undefined' ? window : globalThis);

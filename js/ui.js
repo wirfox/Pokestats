@@ -66,11 +66,26 @@
         'title="Aucune donnée de viabilité fiable — aucun remplacement ne sera recommandé sur cette base.">' +
         'Tier inconnu</span>';
     }
-    var conf = tierInfo.trusted
-      ? ''
-      : '<span class="conf" title="Donnée de confiance moyenne : elle ne peut que bloquer une recommandation, jamais la justifier.">≈</span>';
+    var title = tierInfo.desc || '';
+    var conf = '';
+
+    if (tierInfo.secondOpinion) {
+      title += ' · Smogon : ' + tierInfo.tier + ' — Game8 : ' + tierInfo.secondOpinion;
+    }
+    if (!tierInfo.trusted) {
+      title += tierInfo.disagrees
+        ? ' · Désaccord marqué entre les deux sources : ce tier ne peut que bloquer une recommandation, jamais la justifier.'
+        : ' · Donnée de confiance moyenne : elle ne peut que bloquer une recommandation, jamais la justifier.';
+      conf = '<span class="conf">≈</span>';
+    }
+
+    var second = tierInfo.secondOpinion
+      ? '<span class="tier-second' + (tierInfo.disagrees ? ' is-conflict' : '') + '">' +
+        escapeHtml(tierInfo.secondOpinion) + '</span>'
+      : '';
+
     return '<span class="tier-badge tier-' + escapeHtml(tierInfo.tier) + '" title="' +
-      escapeHtml(tierInfo.desc || '') + '">Tier ' + escapeHtml(tierInfo.tier) + conf + '</span>';
+      escapeHtml(title) + '">Tier ' + escapeHtml(tierInfo.tier) + conf + second + '</span>';
   }
 
   function spriteHtml(record) {
@@ -481,9 +496,12 @@
       '<ul>' +
         '<li>Statistiques de base, types, talents, chaînes d\'évolution et table ' +
           'd\'efficacité des types&nbsp;: <strong>PokéAPI</strong>, récupérés en direct.</li>' +
-        '<li>Tiers de viabilité&nbsp;: instantané curé <code>data/tiers.js</code>. ' +
-          'Les entrées marquées «&nbsp;≈&nbsp;» sont de confiance moyenne et ne ' +
-          'peuvent que bloquer une recommandation, jamais la justifier.</li>' +
+        '<li>Tiers de viabilité&nbsp;: <strong>Smogon</strong> (via <code>@pkmn/dex</code>), ' +
+          'recoupés avec la tier list <strong>Game8</strong> du Combat Classé. ' +
+          'Les deux classent pour des formats différents et ne sont jamais fusionnés.</li>' +
+        '<li>Quand les deux sources divergent d\'au moins deux crans, le tier est ' +
+          'marqué «&nbsp;≈&nbsp;»&nbsp;: il peut encore bloquer une recommandation, ' +
+          'mais ne peut plus la justifier.</li>' +
         '<li>Aucune donnée n\'est estimée ou inventée. Une information manquante ' +
           'entraîne systématiquement une abstention.</li>' +
       '</ul>';
