@@ -1002,3 +1002,11 @@ code {
   cursor: help;
   white-space: nowrap;
 }
+
+/* Vignette dont l'image n'a pas pu être chargée. */
+.mon-sprite.is-broken {
+  font-size: 0.62rem;
+  line-height: 1.2;
+  color: var(--text-dim);
+  border-style: dashed;
+}

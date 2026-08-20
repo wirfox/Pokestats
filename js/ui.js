@@ -88,12 +88,22 @@
       escapeHtml(title) + '">Tier ' + escapeHtml(tierInfo.tier) + conf + second + '</span>';
   }
 
+  /**
+   * Vignette du Pokémon.
+   *
+   * Les images sont servies par l'hébergement de PokéAPI. Si l'une d'elles ne
+   * charge pas — réseau capricieux, hôte injoignable — le navigateur afficherait
+   * une icône cassée. La classe `is-broken`, posée par le gestionnaire délégué
+   * de app.js, la remplace par un cadre discret : une image manquante ne doit
+   * pas défigurer une fiche par ailleurs complète.
+   */
   function spriteHtml(record) {
     if (!record.sprite) {
       return '<div class="mon-sprite is-missing">Pas d\'image</div>';
     }
     return '<img class="mon-sprite" src="' + escapeHtml(record.sprite) +
-      '" alt="" loading="lazy" width="72" height="72">';
+      '" alt="" loading="lazy" width="72" height="72" ' +
+      'data-fallback="' + escapeHtml(record.frName) + '">';
   }
 
   /**

@@ -431,7 +431,24 @@
   /* Démarrage                                                           */
   /* ------------------------------------------------------------------ */
 
+  /*
+   * Images en échec : un seul écouteur délégué, en phase de capture (les
+   * événements `error` d'une image ne remontent pas). Remplace la vignette
+   * cassée par un cadre portant le nom du Pokémon.
+   */
+  function watchBrokenImages() {
+    document.addEventListener('error', function (event) {
+      var img = event.target;
+      if (!img || img.tagName !== 'IMG' || !img.classList.contains('mon-sprite')) return;
+      var remplacement = document.createElement('div');
+      remplacement.className = 'mon-sprite is-missing is-broken';
+      remplacement.textContent = img.dataset.fallback || 'Image indisponible';
+      if (img.parentNode) img.parentNode.replaceChild(remplacement, img);
+    }, true);
+  }
+
   function init() {
+    watchBrokenImages();
     buildSlots();
 
     $('btn-example').addEventListener('click', fillExampleTeam);
