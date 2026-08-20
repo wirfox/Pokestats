@@ -1,0 +1,17 @@
+{
+  "name": "pokestats",
+  "version": "1.0.0",
+  "description": "Analyseur d'équipe Pokémon Écarlate / Violet — outil fan non officiel, 100 % côté client.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node test/engine.test.js",
+    "build:data": "node scripts/build-data.mjs --all",
+    "build:tiers": "node scripts/build-data.mjs --tiers",
+    "build:names": "node scripts/build-data.mjs --names",
+    "export:json": "node scripts/build-data.mjs --export-json",
+    "serve": "npx --yes http-server . -p 8080 -c-1"
+  },
+  "keywords": ["pokemon", "pokeapi", "tier-list", "scarlet-violet", "fan-tool"],
+  "license": "MIT"
+}

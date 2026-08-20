@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PokeStats — Analyseur d'équipe Pokémon Violet</title>
+  <meta name="description" content="Outil fan non officiel : analyse si un Pokémon capturé mérite une place dans ton équipe Pokémon Écarlate / Violet. Données PokéAPI.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <h1>PokeStats</h1>
+    <p class="tagline">
+      Ce Pokémon que tu viens de capturer mérite-t-il vraiment une place dans ton équipe&nbsp;?
+    </p>
+    <p class="header-note">
+      Analyse conservatrice : en cas de doute ou de données insuffisantes,
+      l'outil répond « pas de changement recommandé » plutôt que de te faire
+      prendre un risque.
+    </p>
+  </div>
+</header>
+
+<div class="wrap main-wrap">
+
+  <!-- ============================================================ -->
+  <!-- État des données                                              -->
+  <!-- ============================================================ -->
+  <div id="data-status" class="data-status" role="status" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <span id="data-status-text">Chargement des données PokéAPI…</span>
+  </div>
+
+  <div id="global-error" class="alert alert-error" hidden role="alert"></div>
+
+  <!-- ============================================================ -->
+  <!-- 1. Mon équipe actuelle                                        -->
+  <!-- ============================================================ -->
+  <section class="panel" aria-labelledby="team-title">
+    <div class="panel-head">
+      <h2 id="team-title">1. Mon équipe actuelle</h2>
+      <div class="panel-actions">
+        <button type="button" id="btn-example" class="btn btn-ghost">Exemple d'équipe</button>
+        <button type="button" id="btn-clear-team" class="btn btn-ghost">Tout effacer</button>
+      </div>
+    </div>
+    <p class="panel-hint">
+      Saisis jusqu'à 6 Pokémon (nom français ou anglais). Tu peux laisser des
+      emplacements vides&nbsp;: s'il reste une place libre, l'outil ne te
+      proposera jamais d'écarter un membre.
+    </p>
+
+    <div id="team-slots" class="slot-grid"><!-- généré par ui.js --></div>
+
+    <div id="team-summary" class="team-summary" hidden></div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 2. Nouveau Pokémon capturé                                    -->
+  <!-- ============================================================ -->
+  <section class="panel" aria-labelledby="candidate-title">
+    <div class="panel-head">
+      <h2 id="candidate-title">2. Nouveau Pokémon capturé</h2>
+    </div>
+    <p class="panel-hint">
+      Exemple&nbsp;: <code>Rocabot</code>, <code>Carchacrok</code>,
+      <code>Great Tusk</code>…
+    </p>
+
+    <div class="candidate-input">
+      <label class="visually-hidden" for="candidate-name">Nom du Pokémon capturé</label>
+      <input type="text" id="candidate-name" class="text-input"
+             placeholder="Nom du Pokémon capturé" autocomplete="off"
+             list="candidate-suggestions">
+      <datalist id="candidate-suggestions"></datalist>
+      <button type="button" id="btn-analyze" class="btn btn-primary">Analyser</button>
+    </div>
+
+    <div id="candidate-error" class="alert alert-warn" hidden></div>
+    <div id="candidate-card" class="candidate-card" hidden></div>
+    <div id="evolution-block" class="evolution-block" hidden></div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 3. Analyse & recommandation                                   -->
+  <!-- ============================================================ -->
+  <section class="panel" id="analysis-panel" aria-labelledby="analysis-title" hidden>
+    <div class="panel-head">
+      <h2 id="analysis-title">3. Analyse &amp; recommandation</h2>
+    </div>
+    <div id="verdict"></div>
+    <div id="reasons"></div>
+    <div id="comparisons"></div>
+    <details id="method-details" class="method">
+      <summary>Comment cette conclusion a-t-elle été obtenue&nbsp;?</summary>
+      <div id="method-body"></div>
+    </details>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Mentions légales                                              -->
+  <!-- ============================================================ -->
+  <section class="panel disclaimer" aria-labelledby="disclaimer-title">
+    <h2 id="disclaimer-title">Mentions légales / Disclaimer</h2>
+
+    <p lang="fr">
+      <strong>Français —</strong> Ce projet est un outil fan non officiel.
+      Pokémon et tous les noms, images et éléments associés sont des marques
+      déposées de leurs propriétaires respectifs (Nintendo, Game Freak,
+      The Pokémon Company). Ce site n'est ni affilié ni approuvé par ces
+      entités. Les données Pokémon proviennent de
+      <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a>
+      et de tier lists publiques à titre informatif.
+    </p>
+
+    <p lang="en">
+      <strong>English —</strong> This project is an unofficial fan tool.
+      Pokémon and all associated names, images and elements are registered
+      trademarks of their respective owners (Nintendo, Game Freak,
+      The Pokémon Company). This site is neither affiliated with nor endorsed
+      by these entities. Pokémon data comes from
+      <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a>
+      and from public tier lists, for informational purposes only.
+    </p>
+
+    <p class="fineprint">
+      Les statistiques de base, types, talents, chaînes d'évolution et la table
+      d'efficacité des types sont récupérés en direct depuis PokéAPI. Les tiers
+      de viabilité proviennent d'un instantané curé
+      (<code>data/tiers.js</code>) dont les sources et les limites sont
+      détaillées dans le <code>README.md</code>. Aucune donnée n'est inventée&nbsp;:
+      lorsqu'une information manque, l'outil le signale et s'abstient de conclure.
+    </p>
+  </section>
+
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>
+      PokeStats — outil fan non officiel · Données&nbsp;:
+      <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">PokéAPI</a>
+      · <button type="button" id="btn-reset-cache" class="link-button">Vider le cache local</button>
+    </p>
+  </div>
+</footer>
+
+<!-- Données embarquées (chargées avant les scripts qui les consomment) -->
+<script src="data/tiers.js"></script>
+<script src="data/names-fr.js"></script>
+
+<!-- Couches applicatives, de la plus basse à la plus haute -->
+<script src="js/api.js"></script>
+<script src="js/names.js"></script>
+<script src="js/types.js"></script>
+<script src="js/dex.js"></script>
+<script src="js/analysis.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
