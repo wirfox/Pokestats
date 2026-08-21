@@ -79,12 +79,42 @@
   }
 
   /**
+   * Fiche d'une espèce dans la génération sélectionnée, ou null.
+   *
+   * Les tiers, les statistiques et les capacités dépendent de la génération :
+   * Carchacrok n'est pas classé pareil en 4G et en 9G, et Glaivodo n'existe
+   * pas avant la 9G. Quand un jeu est choisi, ses données priment.
+   */
+  function genEntry(record) {
+    var data = PokeStats.game && PokeStats.game.genData && PokeStats.game.genData();
+    if (!data || !data.species) return null;
+    return data.species[record.slug] || data.species[record.speciesSlug] || null;
+  }
+
+  /**
    * Tier d'un Pokémon. Recherche la forme exacte, puis l'espèce.
    * @returns {{known: boolean, tier: ?string, score: ?number,
    *            confidence: number, trusted: boolean, matchedOn: ?string}}
    *   confidence : 2 = haute (peut justifier), 1 = moyenne (peut seulement bloquer)
    */
   function tierOf(record) {
+    /* Génération sélectionnée : sa donnée fait foi. */
+    var fromGen = genEntry(record);
+    if (fromGen) {
+      if (!fromGen.r) {
+        return { known: false, tier: null, score: null, confidence: 0,
+                 trusted: false, matchedOn: null, desc: '', fromGeneration: true };
+      }
+      var scaleGen = tierTable().scale[fromGen.r];
+      return {
+        known: true, tier: fromGen.r,
+        score: scaleGen ? scaleGen.score : null,
+        confidence: 2, trusted: true,
+        matchedOn: record.slug, desc: scaleGen ? scaleGen.desc : '',
+        fromGeneration: true
+      };
+    }
+
     var table = tierTable();
     var candidates = [record.slug, record.speciesSlug];
     for (var i = 0; i < candidates.length; i++) {
@@ -133,6 +163,19 @@
    *   conclusion, ni blocage ni indice.
    */
   function movesOf(record) {
+    var fromGen = genEntry(record);
+    if (fromGen) {
+      /* L'espèce existe dans cette génération : ses capacités d'alors font foi. */
+      if (!fromGen.m) {
+        return { known: false, stabPower: 0, category: null, coverage: 0,
+                 moves: [], fromGeneration: true };
+      }
+      return {
+        known: true, stabPower: fromGen.m[0], category: fromGen.m[1],
+        coverage: fromGen.m[2], moves: fromGen.m[3] || [], fromGeneration: true
+      };
+    }
+
     var table = root.POKESTATS_MOVES;
     if (!table || !table.byPokemon) {
       return { known: false, stabPower: 0, category: null, coverage: 0, moves: [] };
@@ -171,8 +214,10 @@
 
   /** Détail d'une capacité : nom français, type, catégorie, puissance. */
   function moveInfo(slug) {
+    var data = PokeStats.game && PokeStats.game.genData && PokeStats.game.genData();
+    var m = (data && data.moves && data.moves[slug]) || null;
     var table = root.POKESTATS_MOVES;
-    var m = table && table.moves && table.moves[slug];
+    if (!m) m = table && table.moves && table.moves[slug];
     if (!m) return { slug: slug, name: slug.replace(/-/g, ' '), type: null, category: null, power: 0 };
     return { slug: slug, name: m[0], type: m[1], category: m[2], power: m[3] };
   }
@@ -607,7 +652,22 @@
      * toujours devant une forme intermédiaire : c'est elle qui représente le
      * potentiel réel du Pokémon (Griknot se juge sur Carchacrok, jamais sur
      * Carmache). À égalité, on départage par le tier fiable puis par le BST. */
-    var ranked = evo.nextForms.slice().sort(function (a, b) {
+    /* Une évolution qui n'existe pas dans le jeu choisi n'est pas un objectif
+     * atteignable : Nymphali ne sert à rien à un joueur de Noir/Blanc. */
+    var reachable = evo.nextForms.filter(function (f) {
+      return f.existsInGame !== false;
+    });
+    if (!reachable.length) {
+      return {
+        available: false,
+        reason: 'hors-jeu',
+        text:
+          'Aucune de ses évolutions n’existe dans le jeu sélectionné : ' +
+          'aucune conclusion n’en est tirée.'
+      };
+    }
+
+    var ranked = reachable.slice().sort(function (a, b) {
       if (!!b.isTerminal !== !!a.isTerminal) return b.isTerminal ? 1 : -1;
       var ta = tierOf(a);
       var tb = tierOf(b);

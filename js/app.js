@@ -15,6 +15,8 @@
   var dex = PokeStats.dex;
   var analysis = PokeStats.analysis;
   var ui = PokeStats.ui;
+  var gameState = PokeStats.game;
+  var teams = PokeStats.teams;
 
   var TEAM_SIZE = 6;
   var TEAM_STORAGE_KEY = 'pokestats:v1:team';
@@ -81,29 +83,114 @@
   /* Persistance de l'équipe                                             */
   /* ------------------------------------------------------------------ */
 
+  /* La persistance passe désormais par js/teams.js : plusieurs équipes
+   * coexistent, chacune rattachée à un jeu. */
   function saveTeam() {
-    try {
-      if (!root.localStorage) return;
-      root.localStorage.setItem(
-        TEAM_STORAGE_KEY,
-        JSON.stringify(slots.map(function (s) { return s.input; }))
-      );
-    } catch (e) { /* stockage indisponible : sans conséquence */ }
+    slots.forEach(function (slot, index) { teams.setSlot(index, slot.input); });
   }
 
   function restoreTeam() {
-    try {
-      if (!root.localStorage) return null;
-      var raw = root.localStorage.getItem(TEAM_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
+    return teams.slots();
   }
 
   /* ------------------------------------------------------------------ */
   /* Construction des emplacements                                       */
   /* ------------------------------------------------------------------ */
+
+  /* ------------------------------------------------------------------ */
+  /* Onglets d'équipes                                                   */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Une barre d'onglets, une équipe par onglet. Chaque équipe est rattachée à
+   * un jeu : changer de jeu n'efface rien, l'ancienne équipe reste à un clic.
+   */
+  function renderTabs() {
+    var container = $('team-tabs');
+    if (!container) return;
+    var currentGame = gameState.current();
+    var active = teams.active();
+
+    container.innerHTML =
+      teams.all().map(function (t) {
+        var jeu = gameState.byId(t.gameId);
+        var remplis = t.slots.filter(function (v) { return v; }).length;
+        var estActif = active && t.id === active.id;
+        return '<button type="button" class="team-tab' + (estActif ? ' is-active' : '') +
+          '" data-team="' + ui.escapeHtml(t.id) + '"' +
+          (estActif ? ' aria-current="true"' : '') + '>' +
+            '<span class="team-tab-name">' + ui.escapeHtml(t.name) + '</span>' +
+            '<span class="team-tab-meta">' +
+              ui.escapeHtml(jeu ? jeu.label : 'jeu inconnu') +
+              ' · ' + remplis + '/6</span>' +
+          '</button>';
+      }).join('') +
+      '<button type="button" class="team-tab team-tab-add" id="team-add" ' +
+        'title="Nouvelle équipe pour ' + ui.escapeHtml(currentGame ? currentGame.label : '') + '">+</button>';
+
+    container.querySelectorAll('[data-team]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (teams.active() && btn.dataset.team === teams.active().id) return;
+        teams.setActive(btn.dataset.team);
+        switchToActiveTeam();
+      });
+    });
+
+    var add = $('team-add');
+    if (add) {
+      add.addEventListener('click', function () {
+        teams.create(currentGame ? currentGame.id : null);
+        switchToActiveTeam();
+      });
+    }
+    renderTeamToolbar();
+  }
+
+  /** Actions sur l'équipe active : renommer, supprimer. */
+  function renderTeamToolbar() {
+    var el = $('team-toolbar');
+    if (!el) return;
+    var active = teams.active();
+    if (!active) { el.innerHTML = ''; return; }
+    var jeu = gameState.byId(active.gameId);
+
+    el.innerHTML =
+      '<span class="team-current">Équipe active&nbsp;: <strong>' +
+        ui.escapeHtml(active.name) + '</strong>' +
+        (jeu ? ' <span class="team-current-game">(' + ui.escapeHtml(jeu.label) + ')</span>' : '') +
+      '</span>' +
+      '<button type="button" class="btn btn-ghost" id="team-rename">Renommer</button>' +
+      '<button type="button" class="btn btn-ghost" id="team-delete">Supprimer</button>';
+
+    $('team-rename').addEventListener('click', function () {
+      var nom = root.prompt('Nom de cette équipe :', active.name);
+      if (nom === null) return;
+      teams.rename(active.id, nom);
+      renderTabs();
+    });
+    $('team-delete').addEventListener('click', function () {
+      var seule = teams.all().length === 1;
+      var message = seule
+        ? 'Vider cette équipe ? C’est la dernière, elle sera conservée mais remise à zéro.'
+        : 'Supprimer l’équipe « ' + active.name + ' » ? Cette action est définitive.';
+      if (!root.confirm(message)) return;
+      teams.remove(active.id);
+      switchToActiveTeam();
+    });
+  }
+
+  /** Recharge les emplacements depuis l'équipe devenue active. */
+  function switchToActiveTeam() {
+    var valeurs = teams.slots();
+    slots.forEach(function (slot, index) {
+      var input = slotElement(index).querySelector('.slot-input');
+      input.value = valeurs[index] || '';
+      slot.input = '';               // force le rechargement même à valeur égale
+      setSlotInput(index, valeurs[index] || '', { silent: true });
+    });
+    renderTabs();
+    onTeamChanged();
+  }
 
   function buildSlots() {
     elTeamSlots.innerHTML = '';
@@ -250,7 +337,7 @@
     };
   }
 
-  function setSlotInput(index, value) {
+  function setSlotInput(index, value, options) {
     var slot = slots[index];
     var trimmed = String(value || '').trim();
 
@@ -261,7 +348,9 @@
     slot.input = trimmed;
     slot.token += 1;
     var token = slot.token;
-    saveTeam();
+    /* Lors d'un changement d'onglet, les valeurs viennent déjà du stockage :
+     * les réécrire écraserait l'équipe qu'on vient de quitter. */
+    if (!options || !options.silent) saveTeam();
 
     if (!trimmed) {
       slot.record = null;
@@ -447,9 +536,43 @@
     }, true);
   }
 
+  /**
+   * Changer de jeu change la génération, donc les stats, les types et les
+   * tiers. Tout ce qui est affiché doit être recalculé — mais l'équipe saisie,
+   * elle, est conservée : l'utilisateur retrouve ses Pokémon.
+   */
+  function onGameChanged() {
+    /* L'ordre importe : on invalide la table AVANT de recharger, sinon une
+     * requête encore en vol pour l'ancienne génération viendrait l'écraser. */
+    if (types.reset) types.reset();
+    typeChartReady = false;
+    renderTabs();
+
+    types.load().then(function () {
+      typeChartReady = true;
+      updateStatusLine(names.status());
+      /* Les fiches déjà chargées portent les stats de l'ancienne génération :
+       * on les recharge depuis leur saisie. */
+      slots.forEach(function (slot, index) {
+        if (!slot.input) return;
+        var saisie = slot.input;
+        slot.input = '';
+        setSlotInput(index, saisie, { silent: true });
+      });
+      if (candidate.input) {
+        var saisie = candidate.input;
+        candidate.input = '';
+        loadCandidate(saisie);
+      }
+      renderTeamSummary();
+    });
+  }
+
   function init() {
     watchBrokenImages();
     buildSlots();
+
+    if (PokeStats.gamebar) PokeStats.gamebar.mount($('game-bar'));
 
     $('btn-example').addEventListener('click', fillExampleTeam);
     $('btn-clear-team').addEventListener('click', clearTeam);
@@ -510,26 +633,43 @@
       }
     );
 
-    /* 3. Restauration de la dernière équipe saisie. */
-    var saved = restoreTeam();
-    if (Array.isArray(saved)) {
-      saved.slice(0, TEAM_SIZE).forEach(function (value, index) {
-        if (!value) return;
-        var input = slotElement(index).querySelector('.slot-input');
-        input.value = value;
-        setSlotInput(index, value);
-      });
-    }
+    /* 3. Jeu sélectionné, puis équipes. L'ordre compte : les équipes sont
+     *    rattachées à un jeu, et les fiches dépendent de sa génération. */
+    gameState.init().then(
+      function (game) {
+        teams.init(game.id);
+        gameState.onChange(onGameChanged);
+        renderTabs();
+
+        var saved = restoreTeam();
+        saved.slice(0, TEAM_SIZE).forEach(function (value, index) {
+          if (!value) return;
+          var input = slotElement(index).querySelector('.slot-input');
+          input.value = value;
+          setSlotInput(index, value, { silent: true });
+        });
+        onGameChanged();
+      },
+      function (err) {
+        showGlobalError(
+          'Impossible de charger les données du jeu sélectionné.',
+          ' ' + (err && err.message ? err.message : '') +
+          ' Le site a besoin de ces données pour adapter les statistiques et les tiers.'
+        );
+      }
+    );
   }
 
   function updateStatusLine(nameStatus) {
     if (!typeChartReady) return;
-    var chartSource = types.source() === 'pokeapi'
-      ? 'table des types : PokéAPI'
-      : 'table des types : repli embarqué';
+    var src = types.source() || '';
+    var chartSource = src.indexOf('generation-') === 0
+      ? 'types : génération ' + src.replace('generation-', '')
+      : src === 'pokeapi' ? 'types : PokéAPI' : 'types : repli embarqué';
+    var jeu = gameState.current();
     setStatus(
-      'Données PokéAPI chargées · ' + chartSource + ' · ' +
-      'index des noms : ' + nameStatus.source + ' (' + nameStatus.count + ' entrées)',
+      (jeu ? jeu.label + ' · ' : '') + chartSource + ' · ' +
+      'noms : ' + nameStatus.count + ' entrées',
       'ready'
     );
   }

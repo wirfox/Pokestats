@@ -23,6 +23,9 @@
   var typeList = [];     // les 18 types de combat
   var iconList = {};     // type → URL de l'icône officielle (Écarlate / Violet)
   var loading = null;
+  /* Numéro de chargement : un appel lancé avant un changement de jeu ne doit
+     pas écraser la table de la nouvelle génération en arrivant en retard. */
+  var epoch = 0;
 
   /** Traductions françaises des types (affichage uniquement). */
   var FR_TYPES = {
@@ -64,10 +67,40 @@
    *
    * @returns {Promise<{chart: Object, types: string[], source: string}>}
    */
+  /**
+   * Table de la génération sélectionnée, si un jeu est choisi.
+   *
+   * C'est la source prioritaire : en 1G le Spectre ne touche pas le Psy, et la
+   * Fée n'existe pas avant la 6G. Utiliser la table actuelle pour un joueur de
+   * 1G donnerait des conseils faux.
+   */
+  function loadFromGeneration() {
+    var data = PokeStats.game && PokeStats.game.genData && PokeStats.game.genData();
+    if (!data || !data.chart || !data.types) return false;
+    chart = data.chart;
+    typeList = data.types.slice();
+    source = 'generation-' + data.meta.generation;
+    return true;
+  }
+
+  /** Force la reconstruction : appelé quand l'utilisateur change de jeu. */
+  function reset() {
+    chart = null; typeList = []; loading = null; source = null;
+    epoch += 1;
+  }
+
   function load() {
+    /* Une génération chargée l'emporte toujours sur la table courante. */
+    var data = PokeStats.game && PokeStats.game.genData && PokeStats.game.genData();
+    if (data && (!chart || source !== 'generation-' + data.meta.generation)) {
+      if (loadFromGeneration()) {
+        return Promise.resolve({ chart: chart, types: typeList, source: source });
+      }
+    }
     if (chart) return Promise.resolve({ chart: chart, types: typeList, source: source });
     if (loading) return loading;
 
+    var myEpoch = epoch;
     loading = api
       .getJSON(api.BASE + '/type?limit=100', { persist: true })
       .then(function (list) {
@@ -111,6 +144,10 @@
           });
         });
 
+        /* Le jeu a changé pendant la requête : ce résultat est périmé. */
+        if (myEpoch !== epoch) {
+          return { chart: chart, types: typeList, source: source, stale: true };
+        }
         chart = built;
         typeList = names;
         source = 'pokeapi';
@@ -172,6 +209,7 @@
     load: load,
     isLoaded: isLoaded,
     source: function () { return source; },
+    reset: reset,
     effectiveness: effectiveness,
     defensiveProfile: defensiveProfile,
     weaknesses: weaknesses,

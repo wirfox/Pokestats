@@ -96,6 +96,45 @@
     });
   }
 
+  /**
+   * Remplace statistiques et types par ceux de la génération sélectionnée.
+   *
+   * PokéAPI sert toujours les valeurs actuelles. Or Ectoplasma avait 555 de
+   * total en 1G contre 500 ensuite, Mélodelfe était Normal avant la 6G, et
+   * Pikachu est passé de 300 à 320. Pour un joueur d'un ancien jeu, afficher
+   * les valeurs d'aujourd'hui serait une erreur factuelle.
+   *
+   * Renseigne aussi `existsInGame` : une espèce absente de la génération
+   * choisie doit être signalée, pas silencieusement analysée.
+   */
+  function applyGeneration(record) {
+    var gameState = PokeStats.game;
+    var data = gameState && gameState.genData && gameState.genData();
+    if (!data || !data.species) {
+      record.existsInGame = null;   // aucun jeu choisi : rien à dire
+      return record;
+    }
+
+    var entry = data.species[record.slug] || data.species[record.speciesSlug];
+    if (!entry) {
+      record.existsInGame = false;
+      record.generation = data.meta.generation;
+      return record;
+    }
+
+    record.existsInGame = true;
+    record.generation = data.meta.generation;
+    record.currentStats = record.stats;     // conservé pour comparaison éventuelle
+    record.stats = {
+      hp: entry.s[0], attack: entry.s[1], defense: entry.s[2],
+      'special-attack': entry.s[3], 'special-defense': entry.s[4], speed: entry.s[5]
+    };
+    record.bst = bstOf(record.stats);
+    record.types = entry.t.slice();
+    record.dexNumber = entry.n;
+    return record;
+  }
+
   /** Fiche minimale d'une forme : ce qu'il faut pour comparer et afficher. */
   function buildForm(pokemonDoc, speciesDoc) {
     var stats = statsFrom(pokemonDoc);
@@ -291,7 +330,8 @@
       varieties.map(function (slug) {
         return api.getPokemon(slug)
           .then(function (doc) { return buildForm(doc, speciesDoc); })
-          .then(attachFormName);
+          .then(attachFormName)
+          .then(applyGeneration);
       })
     );
   }
@@ -342,6 +382,7 @@
         /* Nom de forme localisé : on l'attend, sinon l'affichage montrerait
          * brièvement le suffixe brut de l'identifiant. */
         return attachFormName(record).then(function () {
+          applyGeneration(record);
           return { record: record, speciesDoc: pair.speciesDoc };
         });
       })
@@ -419,6 +460,7 @@
     STAT_FR: STAT_FR,
     bstOf: bstOf,
     conditionToFrench: conditionToFrench,
+    applyGeneration: applyGeneration,
     detailsForForm: detailsForForm,
     UNPLAYABLE_FORM: UNPLAYABLE_FORM
   };
