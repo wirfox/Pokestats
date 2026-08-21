@@ -177,6 +177,29 @@
     return out;
   }
 
+  /**
+   * Nombre de Pokémon réellement distincts dans un jeu.
+   *
+   * `game.entries` additionne les pokédex sans dédoublonner : Écarlate/Violet
+   * y pèse 843 alors que ses trois pokédex ne recensent que 664 espèces
+   * distinctes. Afficher ce total gonflé contredirait la page Pokédex.
+   */
+  function entryCount(gameId) {
+    var game = gameId ? byId(gameId) : current();
+    var table = root.POKESTATS_POKEDEX;
+    if (!game || !table || !table.dexes) return game ? game.entries : 0;
+    var seen = Object.create(null);
+    var total = 0;
+    game.pokedexes.forEach(function (name) {
+      (table.dexes[name] || []).forEach(function (slug) {
+        if (seen[slug]) return;
+        seen[slug] = true;
+        total += 1;
+      });
+    });
+    return total;
+  }
+
   var membershipCache = { gameId: null, set: null };
 
   /** Ce Pokémon figure-t-il dans le jeu courant ? */
@@ -202,6 +225,7 @@
     genData: genData,
     loadGeneration: loadGeneration,
     dexSpecies: dexSpecies,
+    entryCount: entryCount,
     isInGame: isInGame,
     STORAGE_KEY: STORAGE_KEY
   };

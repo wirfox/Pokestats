@@ -1025,11 +1025,35 @@ code {
 .site-nav {
   border-bottom: 1px solid var(--border);
   background: rgba(15, 8, 33, 0.55);
+  /* Le ruban défile en interne : sans cette barrière, un contenu trop large
+     élargirait la page entière et décalerait tout vers la droite. */
+  overflow: hidden;
 }
-.site-nav .wrap { display: flex; gap: 4px; }
+
+/*
+ * Ruban défilant.
+ *
+ * Trois onglets plus le sélecteur de jeu dépassent largement 390 px. Plutôt
+ * que de replier les éléments sur plusieurs lignes ou de laisser la page
+ * s'élargir, la barre défile horizontalement pour elle-même.
+ */
+.site-nav .wrap {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;              /* Firefox */
+  -webkit-overflow-scrolling: touch;  /* inertie iOS */
+  overscroll-behavior-x: contain;     /* ne déclenche pas le « retour » du navigateur */
+}
+.site-nav .wrap::-webkit-scrollbar { display: none; }
 
 .site-nav a {
   position: relative;
+  flex: none;
+  white-space: nowrap;
   padding: 13px 18px;
   font-size: 0.88rem;
   font-weight: 700;
@@ -1274,7 +1298,16 @@ code {
 /* Sélecteur de jeu                                                    */
 /* ================================================================== */
 
-.game-bar { position: relative; margin-left: auto; }
+.game-bar {
+  flex: none;
+  margin-left: auto;      /* collé à droite quand la place le permet */
+  padding-left: 10px;
+}
+@media (max-width: 700px) {
+  /* Sur écran étroit, il prend simplement sa place dans le ruban : le pousser
+     à droite créerait un vide et allongerait inutilement le défilement. */
+  .game-bar { margin-left: 4px; padding-left: 0; }
+}
 
 .game-button {
   display: flex;
@@ -1300,10 +1333,15 @@ code {
 .game-button-name { font-size: 0.84rem; font-weight: 700; white-space: nowrap; }
 .game-button-caret { color: var(--gold); font-size: 0.7rem; }
 
+/*
+ * Menu en position fixe, et non absolue : la barre de navigation est un
+ * conteneur à défilement (`overflow-x: auto`), ce qui rognerait un menu
+ * positionné en absolu. Sa position est calculée à l'ouverture par
+ * js/gamebar.js à partir du bouton.
+ */
 .game-menu {
-  position: absolute;
-  right: 0; top: calc(100% + 8px);
-  z-index: 40;
+  position: fixed;
+  z-index: 200;
   width: 320px;
   max-height: min(70vh, 520px);
   overflow-y: auto;
