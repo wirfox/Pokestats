@@ -120,6 +120,38 @@ for (const largeur of LARGEURS) {
       return { debordement, coupables: [...new Set(coupables)].slice(0, 4) };
     }, largeur);
 
+    /*
+     * Le menu du sélecteur est en `position: fixed`. Sur iOS, un ancêtre
+     * portant `-webkit-overflow-scrolling: touch`, `overflow: hidden`, une
+     * transformation ou un filtre casse ce positionnement : le menu est rogné
+     * et devient invisible — le bouton semble alors ne rien faire. Il doit
+     * donc rester rattaché à <body>.
+     */
+    const menu = await page.evaluate(() => {
+      const m = document.getElementById('game-menu');
+      if (!m) return { present: false };
+      const risques = [];
+      let el = m.parentElement;
+      while (el && el !== document.documentElement) {
+        const st = getComputedStyle(el);
+        if (st.overflow.includes('hidden') || st.overflowX.includes('auto') ||
+            st.webkitOverflowScrolling === 'touch' ||
+            (st.transform && st.transform !== 'none') ||
+            (st.filter && st.filter !== 'none')) {
+          risques.push(el.tagName + '.' + String(el.className || '').split(' ')[0]);
+        }
+        el = el.parentElement;
+      }
+      return { present: true, parent: m.parentElement.tagName, risques };
+    });
+
+    controles += 1;
+    if (menu.present && menu.risques.length) {
+      echecs += 1;
+      console.log(`  ✗ ${nom} @ ${largeur}px : le menu du sélecteur a des ancêtres qui le rognent`);
+      menu.risques.forEach((r) => console.log(`      ↳ ${r}`));
+    }
+
     controles += 1;
     if (resultat.debordement > 0) {
       echecs += 1;

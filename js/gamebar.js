@@ -34,11 +34,28 @@
           '<span class="game-button-name" id="game-button-name">…</span>' +
         '</span>' +
         '<span class="game-button-caret" aria-hidden="true">▾</span>' +
-      '</button>' +
-      '<div class="game-menu" id="game-menu" role="listbox" hidden></div>';
+      '</button>';
 
+    /*
+     * Le menu est rattaché à <body>, PAS au bouton.
+     *
+     * Il vivrait sinon dans la barre de navigation, qui est un conteneur à
+     * défilement horizontal portant `-webkit-overflow-scrolling: touch`, elle-
+     * même en `overflow: hidden`. Sur iOS, un tel ancêtre casse le
+     * `position: fixed` de ses descendants : le menu est rogné et devient
+     * invisible. L'utilisateur tape sur le bouton et il ne se passe rien —
+     * alors que le code, lui, fonctionne.
+     *
+     * Le sortir de cette chaîne supprime toute la catégorie de problèmes :
+     * plus aucun ancêtre ne peut le rogner, sur aucun moteur.
+     */
     var button = document.getElementById('game-button');
-    var menu = document.getElementById('game-menu');
+    var menu = document.createElement('div');
+    menu.className = 'game-menu';
+    menu.id = 'game-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    document.body.appendChild(menu);
 
     function renderLabel() {
       var current = game.current();
@@ -126,8 +143,13 @@
     root.addEventListener('resize', function () { if (!menu.hidden) place(); });
 
     /* Fermeture au clic extérieur et à Échap : comportement attendu d'un menu. */
+    /* Le menu n'étant plus dans le conteneur, il faut l'exclure explicitement
+     * du « clic extérieur » — sinon choisir un jeu refermerait le menu avant
+     * que le clic n'atteigne l'option. */
     document.addEventListener('click', function (event) {
-      if (!menu.hidden && !container.contains(event.target)) close();
+      if (menu.hidden) return;
+      if (container.contains(event.target) || menu.contains(event.target)) return;
+      close();
     });
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && !menu.hidden) { close(); button.focus(); }
