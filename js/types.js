@@ -193,6 +193,44 @@
     return out;
   }
 
+  /**
+   * Profil OFFENSIF : ce que les capacités de ces types infligent.
+   *
+   * Avec deux types, on retient le MEILLEUR des deux multiplicateurs — un
+   * joueur choisira naturellement la capacité la plus efficace dont il dispose.
+   *
+   * À ne pas confondre avec `defensiveProfile`, qui décrit ce que le Pokémon
+   * SUBIT : le Feu est fort contre la Plante mais vulnérable à l'Eau.
+   */
+  function offensiveProfile(attackingTypes) {
+    var out = Object.create(null);
+    typeList.forEach(function (defender) {
+      var best = 0;
+      (attackingTypes || []).forEach(function (attacker) {
+        var mult = effectiveness(attacker, [defender]);
+        if (mult > best) best = mult;
+      });
+      out[defender] = best;
+    });
+    return out;
+  }
+
+  /**
+   * Regroupe un profil par multiplicateur, du plus fort au plus faible.
+   * @returns {Array<{value: number, types: string[]}>}
+   */
+  function groupByMultiplier(profile) {
+    var buckets = Object.create(null);
+    Object.keys(profile).forEach(function (t) {
+      var v = profile[t];
+      (buckets[v] = buckets[v] || []).push(t);
+    });
+    return Object.keys(buckets)
+      .map(Number)
+      .sort(function (a, b) { return b - a; })
+      .map(function (v) { return { value: v, types: buckets[v].sort() }; });
+  }
+
   /** Types contre lesquels ce Pokémon est faible (×2 ou ×4). */
   function weaknesses(defendingTypes) {
     var profile = defensiveProfile(defendingTypes);
@@ -212,6 +250,8 @@
     reset: reset,
     effectiveness: effectiveness,
     defensiveProfile: defensiveProfile,
+    offensiveProfile: offensiveProfile,
+    groupByMultiplier: groupByMultiplier,
     weaknesses: weaknesses,
     resistances: resistances,
     frType: frType,

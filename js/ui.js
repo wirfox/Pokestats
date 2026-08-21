@@ -247,6 +247,79 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Faiblesses et résistances                                           */
+  /* ------------------------------------------------------------------ */
+
+  function formatMultiplier(value) {
+    if (value === 0) return '×0';
+    if (value === 0.25) return '×¼';
+    if (value === 0.5) return '×½';
+    if (value === 1) return '×1';
+    return '×' + value;
+  }
+
+  function multiplierClass(value) {
+    if (value === 0) return 'cell-0';
+    if (value === 0.25) return 'cell-025';
+    if (value === 0.5) return 'cell-05';
+    if (value === 1) return 'cell-1';
+    if (value === 2) return 'cell-2';
+    return 'cell-4';
+  }
+
+  var DEFENSE_LABEL = {
+    4: 'Faiblesse doublée', 2: 'Faiblesse', 1: 'Dégâts normaux',
+    0.5: 'Résistance', 0.25: 'Double résistance', 0: 'Immunité'
+  };
+  var ATTACK_LABEL = {
+    4: 'Dégâts ×4', 2: 'Très efficace', 1: 'Dégâts normaux',
+    0.5: 'Peu efficace', 0.25: 'Très peu efficace', 0: 'Aucun effet'
+  };
+
+  function matchupRows(profile, labels, skipNeutral) {
+    var groups = types.groupByMultiplier(profile).filter(function (g) {
+      return !(skipNeutral && g.value === 1);
+    });
+    if (!groups.length) return '<p class="matchup-empty">Rien à signaler.</p>';
+
+    return groups.map(function (g) {
+      return '' +
+        '<div class="mu-row">' +
+          '<span class="mu-mult ' + multiplierClass(g.value) + '">' +
+            formatMultiplier(g.value) + '</span>' +
+          '<span class="mu-label">' + escapeHtml(labels[g.value] || '') + '</span>' +
+          '<span class="mu-types">' + typeChips(g.types) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  /**
+   * Faiblesses et résistances d'un Pokémon, en deux volets.
+   *
+   * Attaque et défense sont séparées à dessein : c'est la confusion la plus
+   * fréquente. Le Feu est fort CONTRE la Plante mais vulnérable FACE À l'Eau ;
+   * une liste unique « fort / faible » induirait en erreur.
+   *
+   * Le neutre (×1) est masqué : il n'apprend rien et allonge la fiche.
+   */
+  function matchupsHtml(typeList) {
+    if (!types.isLoaded() || !typeList || !typeList.length) return '';
+    var noms = typeList.map(types.frType).join(' / ');
+
+    return '' +
+      '<div class="mu-block">' +
+        '<h3 class="mu-title mu-defense">Ce qu\'il subit' +
+          '<span class="mu-sub">en défense, ' + escapeHtml(noms) + '</span></h3>' +
+        matchupRows(types.defensiveProfile(typeList), DEFENSE_LABEL, true) +
+      '</div>' +
+      '<div class="mu-block">' +
+        '<h3 class="mu-title mu-attack">Ce que ses capacités de type infligent' +
+          '<span class="mu-sub">en attaque, ' + escapeHtml(noms) + '</span></h3>' +
+        matchupRows(types.offensiveProfile(typeList), ATTACK_LABEL, true) +
+      '</div>';
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Équipe                                                              */
   /* ------------------------------------------------------------------ */
 
@@ -628,6 +701,7 @@
     typeChips: typeChips,
     tierBadge: tierBadge,
     teamSummaryHtml: teamSummaryHtml,
+    matchupsHtml: matchupsHtml,
     evolutionHtml: evolutionHtml,
     verdictHtml: verdictHtml,
     reasonsHtml: reasonsHtml,

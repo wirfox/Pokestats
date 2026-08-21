@@ -116,50 +116,11 @@
   /* Calculs                                                             */
   /* ------------------------------------------------------------------ */
 
-  /**
-   * Profil OFFENSIF : ce que les capacités de ces types infligent.
-   *
-   * Avec deux types, on retient le MEILLEUR des deux multiplicateurs : c'est la
-   * lecture utile pour un joueur, qui choisira la capacité la plus efficace
-   * parmi celles dont il dispose.
-   */
-  function offensiveProfile(selected) {
-    var out = {};
-    types.allTypes().forEach(function (defender) {
-      var best = 0;
-      selected.forEach(function (attacker) {
-        var mult = types.effectiveness(attacker, [defender]);
-        if (mult > best) best = mult;
-      });
-      out[defender] = best;
-    });
-    return out;
-  }
-
-  /**
-   * Profil DÉFENSIF : ce que ce Pokémon subit.
-   * Les deux types se multiplient — d'où les ×4 et les ×¼.
-   */
-  function defensiveProfile(selected) {
-    var out = {};
-    types.allTypes().forEach(function (attacker) {
-      out[attacker] = types.effectiveness(attacker, selected);
-    });
-    return out;
-  }
-
-  /** Regroupe un profil par multiplicateur, du plus fort au plus faible. */
-  function groupByMultiplier(profile) {
-    var buckets = {};
-    Object.keys(profile).forEach(function (t) {
-      var v = profile[t];
-      (buckets[v] = buckets[v] || []).push(t);
-    });
-    return Object.keys(buckets)
-      .map(Number)
-      .sort(function (a, b) { return b - a; })
-      .map(function (v) { return { value: v, types: buckets[v].sort() }; });
-  }
+  /* Les calculs de profils et de regroupement vivent dans js/types.js : la
+   * page du Pokédex les utilise aussi, et deux copies finiraient par diverger. */
+  var offensiveProfile = types.offensiveProfile;
+  var defensiveProfile = types.defensiveProfile;
+  var groupByMultiplier = types.groupByMultiplier;
 
   /* ------------------------------------------------------------------ */
   /* Rendu des résultats                                                 */

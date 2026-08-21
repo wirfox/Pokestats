@@ -307,6 +307,9 @@
             (record.existsInGame === false
               ? '<p class="dex-warning">Ce Pokémon n’apparaît pas dans le jeu sélectionné.</p>'
               : '') +
+            '<div class="dex-detail-mu">' +
+              ui.matchupsHtml(record.types) +
+            '</div>' +
             '<div class="dex-detail-evo">' +
               ui.evolutionHtml(record, evo) +
             '</div>' +

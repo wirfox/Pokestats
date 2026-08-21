@@ -1631,3 +1631,69 @@ code {
 @media (max-width: 480px) {
   .suggest-types { display: none; }   /* la place manque, le nom prime */
 }
+
+/* ================================================================== */
+/* Faiblesses et résistances (fiche Pokédex)                           */
+/* ================================================================== */
+
+.dex-detail-mu {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 16px;
+}
+
+.mu-title {
+  margin: 0 0 9px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-bottom: 7px;
+  border-bottom: 2px solid;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mu-defense { color: var(--violet-bright); border-color: rgba(157, 92, 255, 0.4); }
+.mu-attack  { color: var(--scarlet);      border-color: rgba(255, 59, 92, 0.4); }
+
+.mu-sub {
+  font-size: 0.66rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-faint);
+}
+
+.mu-row {
+  display: grid;
+  grid-template-columns: 46px 118px 1fr;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+}
+.mu-row + .mu-row { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+
+.mu-mult {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 3px 0;
+  border-radius: var(--radius-pill);
+}
+
+.mu-label { font-size: 0.74rem; color: var(--text-dim); }
+.mu-types { display: flex; gap: 4px; flex-wrap: wrap; }
+.mu-types .type-chip { font-size: 0.6rem; padding: 2px 7px; }
+.mu-types .type-icon { width: 12px; height: 12px; }
+
+@media (max-width: 560px) {
+  .mu-row { grid-template-columns: 42px 1fr; }
+  /* Le libellé passe sous le multiplicateur : la place manque pour trois
+     colonnes, et les pastilles de types restent l'information utile. */
+  .mu-label { grid-column: 2; font-size: 0.7rem; }
+  .mu-types { grid-column: 1 / -1; }
+}
