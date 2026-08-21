@@ -288,6 +288,41 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Équipe du joueur                                                    */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Les emplacements d'équipe ne stockent que le texte saisi. Pour connaître
+   * les types de chaque membre, on le résout via l'index des noms puis on lit
+   * les données de la génération — aucun appel réseau, donc un affichage
+   * instantané même hors ligne.
+   */
+  function equipeCourante() {
+    var teams = PokeStats.teams;
+    var data = game.genData();
+    if (!teams || !data || !data.species) return { membres: [], nom: null };
+
+    var equipe = teams.active();
+    if (!equipe) return { membres: [], nom: null };
+
+    var membres = [];
+    equipe.slots.forEach(function (saisie) {
+      if (!saisie) return;
+      var slug = names.toCandidateSlug(saisie).slug;
+      var s = data.species[slug];
+      if (!s) return;   // Pokémon absent de ce jeu : on ne peut rien en dire
+      membres.push({
+        slug: slug,
+        frName: frenchName(slug),
+        types: s.t,
+        bst: s.s.reduce(function (a, b) { return a + b; }, 0),
+        tier: s.r
+      });
+    });
+    return { membres: membres, nom: equipe.name };
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Fiche détaillée                                                     */
   /* ------------------------------------------------------------------ */
 
@@ -297,6 +332,8 @@
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
     body.innerHTML = '<p class="dex-loading">Chargement de la fiche…</p>';
+
+    var equipe = equipeCourante();
 
     dex.load(slug).then(
       function (record) {
@@ -309,6 +346,9 @@
               : '') +
             '<div class="dex-detail-mu">' +
               ui.matchupsHtml(record.types) +
+            '</div>' +
+            '<div class="dex-detail-counter">' +
+              ui.counterHtml(record, equipe.membres, { teamName: equipe.nom }) +
             '</div>' +
             '<div class="dex-detail-evo">' +
               ui.evolutionHtml(record, evo) +
@@ -451,7 +491,9 @@
     });
 
     game.init().then(
-      function () {
+      function (jeu) {
+        /* L'équipe est rattachée à un jeu : on l'initialise après lui. */
+        if (PokeStats.teams) PokeStats.teams.init(jeu.id);
         game.onChange(function () {
           if (types.reset) types.reset();
           types.load().then(refresh);

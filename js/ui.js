@@ -320,6 +320,169 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Qui envoyer au combat                                               */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Face à un adversaire, deux questions comptent, et elles sont distinctes :
+   *   · ce que MON Pokémon lui inflige  (offensive)
+   *   · ce que LUI m'inflige            (défensive)
+   *
+   * Un Pokémon qui frappe ×2 mais encaisse ×2 est un pari ; celui qui frappe
+   * ×2 en ne subissant que ×½ est le bon choix. Le rapport entre les deux
+   * ordonne donc le classement, et les deux chiffres restent affichés pour que
+   * la recommandation soit vérifiable.
+   */
+  /*
+   * Seuils du rapport « ce que j'inflige / ce que je subis ».
+   * 4 correspond au contre classique : ×2 infligé contre ×½ subi.
+   */
+  var COUNTER_VERDICTS = [
+    { min: 4,   code: 'excellent', label: 'Excellent choix' },
+    { min: 2,   code: 'bon',       label: 'Bon choix' },
+    { min: 1,   code: 'correct',   label: 'Correct' },
+    { min: 0,   code: 'eviter',    label: 'À éviter' }
+  ];
+  var COUNTER_RISQUE = { code: 'risque', label: 'Échange risqué' };
+
+  /**
+   * @param {number} ratio   ce que j'inflige / ce que je subis
+   * @param {number} defense multiplicateur subi
+   *
+   * Le rapport ne dit pas tout : frapper ×2 en subissant ×2 donne un rapport
+   * de 1, comme un affrontement parfaitement neutre — alors que c'est une
+   * course à qui tombe le premier. Une faiblesse subie plafonne donc le
+   * verdict, quel que soit le rapport.
+   */
+  function counterVerdict(ratio, defense) {
+    if (defense >= 2 && ratio >= 1) return COUNTER_RISQUE;
+    for (var i = 0; i < COUNTER_VERDICTS.length; i++) {
+      if (ratio >= COUNTER_VERDICTS[i].min) return COUNTER_VERDICTS[i];
+    }
+    return COUNTER_VERDICTS[COUNTER_VERDICTS.length - 1];
+  }
+
+  /**
+   * Évalue un membre de l'équipe face à une cible.
+   * @param {{types: string[], bst: number}} member
+   * @param {{types: string[], bst: number}} target
+   */
+  function evaluateCounter(member, target) {
+    /* Meilleur multiplicateur de MES types sur les siens, et inversement. */
+    var offense = 0;
+    member.types.forEach(function (t) {
+      var m = types.effectiveness(t, target.types);
+      if (m > offense) offense = m;
+    });
+    var defense = 0;
+    target.types.forEach(function (t) {
+      var m = types.effectiveness(t, member.types);
+      if (m > defense) defense = m;
+    });
+
+    /* Le plancher évite une division par zéro sur une immunité, qui
+     * écraserait le classement avec un score infini. */
+    var ratio = offense / Math.max(defense, 0.25);
+    return {
+      member: member,
+      offense: offense,
+      defense: defense,
+      ratio: ratio,
+      immunise: defense === 0,
+      verdict: counterVerdict(ratio, defense)
+    };
+  }
+
+  /**
+   * Classe l'équipe face à une cible et explique le choix.
+   *
+   * @param {Object} target      fiche du Pokémon consulté
+   * @param {Array}  members     équipe : { frName, types, bst, tier, slug }
+   * @param {Object} [options]   { teamName, gameLabel }
+   */
+  function counterHtml(target, members, options) {
+    var o = options || {};
+    if (!types.isLoaded()) return '';
+
+    if (!members || !members.length) {
+      return '' +
+        '<div class="counter-block">' +
+          '<h3 class="counter-title">Qui envoyer contre lui&nbsp;?</h3>' +
+          '<p class="counter-empty">Ton équipe est vide. Renseigne-la dans ' +
+            '<a href="index.html">l’analyseur d’équipe</a> et cette section te ' +
+            'dira lequel de tes Pokémon envoyer.</p>' +
+        '</div>';
+    }
+
+    var classement = members
+      .map(function (m) { return evaluateCounter(m, target); })
+      .sort(function (a, b) {
+        if (b.ratio !== a.ratio) return b.ratio - a.ratio;
+        return (b.member.bst || 0) - (a.member.bst || 0);
+      });
+
+    var meilleur = classement[0];
+    var conseil;
+    if (meilleur.verdict.code === 'eviter' || meilleur.verdict.code === 'risque') {
+      conseil = meilleur.verdict.code === 'risque'
+        ? 'Aucun de tes Pokémon ne prend l’avantage sans risque contre ' +
+          escapeHtml(target.frName) + '. Le meilleur, <strong>' +
+          escapeHtml(meilleur.member.frName) + '</strong>, frappe fort mais ' +
+          'encaisse tout aussi mal : ce sera une course de vitesse.'
+        : 'Aucun membre de ton équipe n’a l’avantage de type contre ' +
+          escapeHtml(target.frName) + '. Le combat se jouera sur les statistiques ' +
+          'et les capacités, pas sur les types.';
+    } else {
+      conseil = 'Envoie <strong>' + escapeHtml(meilleur.member.frName) + '</strong>' +
+        (meilleur.immunise
+          ? ' — il est <strong>immunisé</strong> contre les capacités de son type.'
+          : '.');
+      /* Signaler un écart de puissance qui pourrait renverser l'avantage. */
+      if (meilleur.member.bst && target.bst && meilleur.member.bst < target.bst - 80) {
+        conseil += ' Attention tout de même : il est nettement moins puissant (' +
+          meilleur.member.bst + ' contre ' + target.bst +
+          ' de total), l’avantage de type ne suffira peut-être pas.';
+      }
+    }
+
+    var lignes = classement.map(function (c) {
+      return '' +
+        '<div class="counter-row counter-' + c.verdict.code + '">' +
+          '<span class="counter-name">' + escapeHtml(c.member.frName) +
+            '<span class="counter-types">' + typeChips(c.member.types) + '</span>' +
+          '</span>' +
+          '<span class="counter-figures">' +
+            '<span class="counter-fig" title="Ce que ' + escapeHtml(c.member.frName) +
+              ' inflige avec ses capacités de type">' +
+              '<span class="counter-fig-k">inflige</span>' +
+              '<span class="counter-fig-v ' + multiplierClass(c.offense) + '">' +
+                formatMultiplier(c.offense) + '</span></span>' +
+            '<span class="counter-fig" title="Ce que ' + escapeHtml(target.frName) +
+              ' lui inflige">' +
+              '<span class="counter-fig-k">subit</span>' +
+              '<span class="counter-fig-v ' + multiplierClass(c.defense) + '">' +
+                formatMultiplier(c.defense) + '</span></span>' +
+          '</span>' +
+          '<span class="counter-verdict">' + escapeHtml(c.verdict.label) + '</span>' +
+        '</div>';
+    }).join('');
+
+    return '' +
+      '<div class="counter-block">' +
+        '<h3 class="counter-title">Qui envoyer contre lui&nbsp;?' +
+          (o.teamName
+            ? '<span class="counter-sub">équipe «&nbsp;' + escapeHtml(o.teamName) + '&nbsp;»</span>'
+            : '') +
+        '</h3>' +
+        '<p class="counter-advice">' + conseil + '</p>' +
+        '<div class="counter-list">' + lignes + '</div>' +
+        '<p class="counter-note">Classement fondé sur les types uniquement. ' +
+          'Les capacités réellement équipées, les niveaux et les objets peuvent ' +
+          'changer l’issue d’un combat.</p>' +
+      '</div>';
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Équipe                                                              */
   /* ------------------------------------------------------------------ */
 
@@ -702,6 +865,8 @@
     tierBadge: tierBadge,
     teamSummaryHtml: teamSummaryHtml,
     matchupsHtml: matchupsHtml,
+    counterHtml: counterHtml,
+    evaluateCounter: evaluateCounter,
     evolutionHtml: evolutionHtml,
     verdictHtml: verdictHtml,
     reasonsHtml: reasonsHtml,

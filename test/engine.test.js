@@ -947,6 +947,81 @@ test('chaque type a au moins une faiblesse et une résistance', function () {
 });
 
 /* ================================================================== */
+section('7 bis. Qui envoyer au combat');
+/* ================================================================== */
+
+/* ui.js manipule le DOM à l'affichage, mais evaluateCounter est du calcul pur. */
+require(path.join(__dirname, '..', 'js', 'names.js'));
+require(path.join(__dirname, '..', 'js', 'ui.js'));
+var counters = PokeStats.ui;
+
+test('un Pokémon qui frappe fort ET encaisse est le meilleur choix', function () {
+  /* Carchacrok (Dragon/Sol) face à un Feu : il inflige ×2 (Sol) et ne subit
+   * que ×½ (le Sol résiste au Feu... non : le Feu fait ×1 au Sol et ×½ au
+   * Dragon, donc ×½ au total). */
+  var evalue = counters.evaluateCounter(
+    { frName: 'Carchacrok', types: ['dragon', 'ground'], bst: 600 },
+    { frName: 'Cible Feu', types: ['fire'], bst: 500 }
+  );
+  assert.strictEqual(evalue.offense, 2, 'le Sol est super efficace sur le Feu');
+  assert.strictEqual(evalue.defense, 0.5, 'le Feu n’est pas efficace sur Dragon/Sol');
+  assert.ok(evalue.ratio >= 4);
+  assert.strictEqual(evalue.verdict.code, 'excellent');
+});
+
+test('une immunité est signalée et ne produit pas un score infini', function () {
+  /* Corvaillus (Vol/Acier) face à un Sol : il est immunisé. */
+  var evalue = counters.evaluateCounter(
+    { frName: 'Corvaillus', types: ['flying', 'steel'], bst: 495 },
+    { frName: 'Cible Sol', types: ['ground'], bst: 500 }
+  );
+  assert.strictEqual(evalue.defense, 0, 'le Vol immunise au Sol');
+  assert.strictEqual(evalue.immunise, true);
+  assert.ok(Number.isFinite(evalue.ratio), 'le score doit rester fini');
+});
+
+test('un Pokémon qui subit ×4 est classé à éviter', function () {
+  var evalue = counters.evaluateCounter(
+    { frName: 'Carchacrok', types: ['dragon', 'ground'], bst: 600 },
+    { frName: 'Cible Glace', types: ['ice'], bst: 400 }
+  );
+  assert.strictEqual(evalue.defense, 4, 'Dragon/Sol subit ×4 de la Glace');
+  assert.ok(evalue.ratio < 1);
+  assert.strictEqual(evalue.verdict.code, 'eviter');
+});
+
+test('frapper ×2 en subissant ×2 est signalé comme risqué, pas comme correct', function () {
+  /* Une course à qui tombe le premier ne doit pas passer pour un choix correct
+   * sous prétexte que le rapport vaut 1, comme un affrontement neutre.
+   *
+   * Aucune paire de types PURS ne se frappe mutuellement ×2 : seuls les
+   * miroirs Dragon/Dragon et Spectre/Spectre le font. C'est la « guerre des
+   * dragons », où celui qui frappe le premier gagne. */
+  var evalue = counters.evaluateCounter(
+    { frName: 'Drattak', types: ['dragon'], bst: 600 },
+    { frName: 'Carchacrok', types: ['dragon', 'ground'], bst: 600 }
+  );
+  assert.strictEqual(evalue.offense, 2, 'le Dragon est efficace sur le Dragon');
+  assert.strictEqual(evalue.defense, 2, 'et réciproquement');
+  assert.strictEqual(evalue.ratio, 1);
+  assert.strictEqual(evalue.verdict.code, 'risque');
+});
+
+test('le classement place le meilleur contre en tête', function () {
+  var cible = { frName: 'Cible Feu', types: ['fire'], bst: 500 };
+  var equipe = [
+    { frName: 'Faible', types: ['grass'], bst: 400 },      // subit ×2, inflige ×½
+    { frName: 'Fort', types: ['water'], bst: 500 },        // inflige ×2, subit ×½
+    { frName: 'Neutre', types: ['normal'], bst: 450 }
+  ];
+  var classement = equipe
+    .map(function (m) { return counters.evaluateCounter(m, cible); })
+    .sort(function (a, b) { return b.ratio - a.ratio; });
+  assert.strictEqual(classement[0].member.frName, 'Fort');
+  assert.strictEqual(classement[classement.length - 1].member.frName, 'Faible');
+});
+
+/* ================================================================== */
 section('8. Intégrité des données embarquées');
 /* ================================================================== */
 
