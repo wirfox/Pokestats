@@ -941,6 +941,428 @@ async function buildMoves() {
 }
 
 /* ================================================================== */
+/* Génération : jeux et données par génération                         */
+/* ================================================================== */
+
+/*
+ * POURQUOI DES DONNÉES PAR GÉNÉRATION
+ * -----------------------------------
+ * Un joueur de Rouge/Bleu et un joueur d'Écarlate/Violet ne jouent pas au même
+ * jeu, au sens propre : Mélodelfe est Normal en 1G et Fée depuis la 6G,
+ * Ectoplasma perdait 55 points de total en 2G, la Fée n'existe pas avant la 6G,
+ * et en 1G le Spectre ne touche pas le Psy. Servir les valeurs actuelles à un
+ * joueur de 1G, ce serait lui mentir.
+ *
+ * On génère donc un fichier par génération, chargé à la demande : une seule
+ * génération est en mémoire à la fois.
+ */
+
+const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+/*
+ * Types existant réellement dans une génération donnée.
+ *
+ * Le repère `isNonstandard === 'Future'` marque un type pas encore introduit.
+ * Résultat : 15 types en 1G (ni Ténèbres, ni Acier, ni Fée), 17 de la 2G à la
+ * 5G (pas de Fée), 18 depuis la 6G.
+ *
+ * Attention : énumérer les clés de `damageTaken` semble équivalent et ne l'est
+ * pas — la table du Feu des 3G à 5G contient une entrée « Fairy » résiduelle,
+ * ce qui faisait apparaître la Fée trois générations trop tôt.
+ */
+function typesForGen(dex) {
+  return TYPE_ORDER
+    .filter((name) => {
+      const t = dex.types.get(name);
+      return t && t.exists && t.isNonstandard !== 'Future';
+    })
+    .sort();
+}
+
+/** Les 18 types, dans l'ordre canonique du jeu. */
+const TYPE_ORDER = [
+  'normal', 'fighting', 'flying', 'poison', 'ground', 'rock', 'bug', 'ghost',
+  'steel', 'fire', 'water', 'grass', 'electric', 'psychic', 'ice', 'dragon',
+  'dark', 'fairy'
+];
+
+/** Table d'efficacité d'une génération. */
+function chartForGen(dex, typeNames) {
+  const chart = {};
+  for (const attacker of typeNames) chart[attacker] = {};
+  for (const defenderName of typeNames) {
+    const defender = dex.types.get(defenderName);
+    for (const attackerName of typeNames) {
+      const key = attackerName.charAt(0).toUpperCase() + attackerName.slice(1);
+      const code = defender.damageTaken[key];
+      const value = code === undefined ? 1 : DAMAGE_TAKEN_TO_MULTIPLIER[code];
+      chart[attackerName][defenderName] = value === undefined ? 1 : value;
+    }
+  }
+  return chart;
+}
+
+/** Indicateurs de capacités d'une espèce, pour la génération considérée. */
+async function moveMetricsForGen(dex, species, generation, chart, typeNames) {
+  let learnable = [];
+  for (const id of [species.id, species.baseSpecies && toID(species.baseSpecies)]) {
+    if (!id) continue;
+    const doc = await dex.learnsets.get(id);
+    const table = doc && doc.learnset;
+    if (!table) continue;
+    /* Une capacité compte si elle est apprenable À CETTE GÉNÉRATION ou avant :
+     * les sources sont préfixées par le numéro de génération. */
+    const found = Object.keys(table).filter((move) =>
+      (table[move] || []).some((source) => {
+        const gen = parseInt(String(source).charAt(0), 10);
+        return Number.isFinite(gen) && gen <= generation;
+      })
+    );
+    if (found.length) { learnable = found; break; }
+  }
+  if (!learnable.length) return null;
+
+  const physical = species.baseStats.atk >= species.baseStats.spa;
+  const stabTypes = species.types.map((t) => t.toLowerCase());
+
+  const damaging = [];
+  for (const id of learnable) {
+    const move = dex.moves.get(id);
+    if (!move || !move.exists || move.category === 'Status' || !move.basePower) continue;
+    const type = move.type.toLowerCase();
+    if (!typeNames.includes(type)) continue;   // type inexistant à cette génération
+    damaging.push({
+      id: moveSlug(move.name), name: move.name, type: type,
+      category: move.category === 'Physical' ? 'phy' : 'spe',
+      power: move.basePower
+    });
+  }
+
+  const stab = damaging.filter(
+    (m) => stabTypes.includes(m.type) && (m.category === 'phy') === physical
+  );
+  const stabPower = stab.reduce((max, m) => Math.max(max, m.power), 0);
+
+  const usable = damaging.filter(
+    (m) => m.power >= MIN_POWER_FOR_COVERAGE && (m.category === 'phy') === physical
+  );
+  const coverage = bestCoverage(usable, chart, typeNames);
+
+  const keyMoves = [];
+  const bestStab = stab.sort((a, b) => b.power - a.power)[0];
+  if (bestStab) keyMoves.push(bestStab);
+  for (const m of coverage.moves) {
+    if (!keyMoves.some((k) => k.id === m.id)) keyMoves.push(m);
+  }
+
+  return {
+    stabPower,
+    category: physical ? 'phy' : 'spe',
+    coverage: coverage.count,
+    moves: keyMoves.slice(0, 5)
+  };
+}
+
+async function buildGenerations() {
+  const { formes, especes } = await fetchReferences();
+  const enByNum = new Map();
+  for (let i = 0; i < EN_NAMES.length; i++) enByNum.set(i + 1, EN_NAMES[i]);
+
+  console.log('  → noms français des capacités…');
+  let frMoves = new Map();
+  try { frMoves = await fetchFrenchMoveNames(); } catch (err) { /* noms anglais */ }
+
+  for (const generation of GENERATIONS) {
+    const dex = Dex.forGen(generation);
+    const typeNames = typesForGen(dex);
+    const chart = chartForGen(dex, typeNames);
+
+    const species = {};
+    const dictionary = {};
+    let sansTier = 0;
+
+    for (const s of dex.species.all()) {
+      if (s.num <= 0) continue;
+      const tier = mapSmogonTier(s.tier);
+      /* On garde une espèce dès lors qu'elle EXISTE à cette génération, même
+       * sans tier : le Pokédex doit rester complet, et un tier absent se
+       * traduit simplement par « inconnu » côté moteur. */
+      if (s.isNonstandard === 'Future' || s.gen > generation) continue;
+      if (String(s.tier || '').startsWith('CAP')) continue;
+
+      const slug = s.forme
+        ? resolveFormeSlug(s.name, formes)
+        : toPokeApiSlug(enByNum.get(s.num) || s.name);
+      if (!slug || (!formes.has(slug) && !especes.has(slug))) continue;
+
+      const st = s.baseStats;
+      const metrics = await moveMetricsForGen(dex, s, generation, chart, typeNames);
+      if (metrics) {
+        for (const m of metrics.moves) {
+          if (!dictionary[m.id]) {
+            dictionary[m.id] = [frMoves.get(m.id) || m.name, m.type, m.category, m.power];
+          }
+        }
+      }
+      if (!tier) sansTier += 1;
+
+      species[slug] = {
+        n: s.num,
+        s: [st.hp, st.atk, st.def, st.spa, st.spd, st.spe],
+        t: s.types.map((t) => t.toLowerCase()),
+        r: tier || null,
+        m: metrics
+          ? [metrics.stabPower, metrics.category, metrics.coverage,
+             metrics.moves.map((x) => x.id)]
+          : null
+      };
+    }
+
+    const meta = {
+      generation: generation,
+      provenance: 'vérifié — généré depuis le paquet npm « @pkmn/dex »',
+      source: `@pkmn/dex@${VERSIONS['@pkmn/dex']} — données Génération ${generation}`,
+      generatedAt: new Date().toISOString().slice(0, 10),
+      regenerate: 'npm run build:gens',
+      speciesCount: Object.keys(species).length,
+      withoutTier: sansTier,
+      typeCount: typeNames.length,
+      note:
+        'Statistiques, types, tiers et capacités tels qu\'ils étaient à cette ' +
+        'génération. Ils diffèrent parfois beaucoup des valeurs actuelles.'
+    };
+
+    const js = `/*
+ * data/gen/gen${generation}.js — Données de la Génération ${generation}.
+ * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
+ *   Source    : @pkmn/dex@${VERSIONS['@pkmn/dex']}
+ *   Régénérer : npm run build:gens
+ *   Espèces   : ${Object.keys(species).length} · Types : ${typeNames.length}
+ *
+ * species["<slug>"] = { n: numéro, s: [PV,Att,Déf,AttSpé,DéfSpé,Vit],
+ *                       t: [types], r: tier|null,
+ *                       m: [puissanceStab, catégorie, couverture, [capacités]]|null }
+ */
+(function (root) {
+  'use strict';
+  root.POKESTATS_GEN = root.POKESTATS_GEN || {};
+  root.POKESTATS_GEN[${generation}] = {
+    meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
+    types: ${JSON.stringify(typeNames)},
+    chart: ${JSON.stringify(chart)},
+    moves: ${JSON.stringify(dictionary)},
+    species: ${JSON.stringify(species)}
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+    const file = join(DATA, 'gen', `gen${generation}.js`);
+    await writeFile(file, js, 'utf8');
+    const ko = (Buffer.byteLength(js) / 1024).toFixed(0);
+    console.log(
+      `✔ data/gen/gen${generation}.js`.padEnd(26) +
+      `${String(Object.keys(species).length).padStart(4)} espèces · ` +
+      `${typeNames.length} types · ${String(Object.keys(dictionary).length).padStart(3)} capacités · ${ko} Ko`
+    );
+  }
+}
+
+/* ================================================================== */
+/* Génération : liste des jeux                                         */
+/* ================================================================== */
+
+/*
+ * Un « groupe de versions » PokéAPI correspond à un jeu ou à une paire de jeux
+ * sortis ensemble (Écarlate/Violet, Rouge/Bleu…). C'est la bonne granularité :
+ * l'utilisateur choisit son jeu, on en déduit la génération, donc les stats,
+ * les tiers et la table des types à appliquer.
+ *
+ * Les DLC (Île solitaire, Masque Turquoise…) sont fusionnés dans leur jeu de
+ * base : personne ne dit « je joue au Disque Indigo », on joue à Écarlate ou
+ * Violet avec ses extensions.
+ */
+const DLC_PARENT = {
+  'the-isle-of-armor': 'sword-shield',
+  'the-crown-tundra': 'sword-shield',
+  'the-teal-mask': 'scarlet-violet',
+  'the-indigo-disk': 'scarlet-violet'
+};
+
+/* Groupes sans intérêt ici : spin-off, versions japonaises, jeux non sortis. */
+const SKIP_GROUPS = new Set([
+  'colosseum', 'xd', 'red-green-japan', 'blue-japan', 'conquest-gallery', 'hyperspace'
+]);
+
+async function buildGames() {
+  console.log('  → groupes de versions depuis PokéAPI…');
+  const index = await (await fetch(`${POKEAPI_REST}/version-group?limit=200`)).json();
+
+  const games = [];
+  const dlcByParent = {};
+  const ignores = [];
+
+  for (const entry of index.results) {
+    if (SKIP_GROUPS.has(entry.name)) continue;
+    const vg = await (await fetch(entry.url)).json();
+    const generation = parseInt(
+      String(vg.generation.name).replace('generation-', '')
+        .replace(/^i$/, '1').replace(/^ii$/, '2').replace(/^iii$/, '3')
+        .replace(/^iv$/, '4').replace(/^v$/, '5').replace(/^vi$/, '6')
+        .replace(/^vii$/, '7').replace(/^viii$/, '8').replace(/^ix$/, '9'), 10
+    );
+    if (!Number.isFinite(generation)) continue;
+
+    /* Nom français : on assemble les versions du groupe (« Écarlate / Violet »). */
+    const titres = [];
+    for (const v of vg.versions) {
+      const doc = await (await fetch(v.url)).json();
+      const fr = (doc.names || []).find((n) => n.language?.name === 'fr');
+      titres.push(fr ? fr.name : v.name);
+    }
+
+    /* Un jeu sans nom français officiel n'est pas encore sorti : PokéAPI n'a
+     * alors que son identifiant anglais. On l'écarte plutôt que d'afficher un
+     * libellé technique à l'utilisateur. */
+    const sansNomFr = titres.every((t, i) => t === vg.versions[i].name);
+    if (sansNomFr) { ignores.push(`${vg.name} (pas de nom français)`); continue; }
+
+    /* Un pokédex vide signale également un jeu non sorti ou hors périmètre. */
+    let entrees = 0;
+    for (const p of vg.pokedexes) {
+      const doc = await (await fetch(p.url)).json();
+      entrees += (doc.pokemon_entries || []).length;
+    }
+    if (!entrees) { ignores.push(`${vg.name} (pokédex vide)`); continue; }
+
+    const record = {
+      id: vg.name,
+      label: titres.join(' / '),
+      generation: generation,
+      entries: entrees,
+      pokedexes: vg.pokedexes.map((p) => p.name)
+    };
+
+    if (DLC_PARENT[vg.name]) {
+      (dlcByParent[DLC_PARENT[vg.name]] = dlcByParent[DLC_PARENT[vg.name]] || []).push(record);
+    } else {
+      games.push(record);
+    }
+  }
+
+  /* Les pokédex des DLC rejoignent ceux du jeu de base. */
+  for (const game of games) {
+    for (const dlc of dlcByParent[game.id] || []) {
+      for (const dex of dlc.pokedexes) {
+        if (!game.pokedexes.includes(dex)) game.pokedexes.push(dex);
+      }
+    }
+  }
+
+  games.sort((a, b) => a.generation - b.generation || a.id.localeCompare(b.id));
+
+  const meta = {
+    provenance: 'vérifié — généré depuis PokéAPI (version-group, version)',
+    source: 'PokéAPI /version-group et /version — noms français officiels',
+    generatedAt: new Date().toISOString().slice(0, 10),
+    regenerate: 'npm run build:games',
+    count: games.length,
+    note:
+      'Les extensions sont fusionnées dans leur jeu de base : leurs pokédex ' +
+      's’ajoutent à celui du jeu principal.'
+  };
+
+  const js = `/*
+ * data/games.js — Jeux Pokémon proposés au choix.
+ * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
+ *   Source    : PokéAPI (/version-group, /version)
+ *   Régénérer : npm run build:games
+ *   Jeux      : ${games.length}
+ *
+ * Chaque entrée : { id, label (français), generation, pokedexes }
+ * La génération détermine les statistiques, les types, la table d'efficacité
+ * et les tiers appliqués — voir data/gen/gen{N}.js.
+ */
+(function (root) {
+  'use strict';
+  root.POKESTATS_GAMES = {
+    meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
+    games: ${JSON.stringify(games, null, 2).split('\n').join('\n    ')}
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+  await writeFile(join(DATA, 'games.js'), js, 'utf8');
+  console.log(`✔ data/games.js         ${games.length} jeux`);
+  if (ignores.length) console.log(`    écartés : ${ignores.join(', ')}`);
+  games.forEach((g) => console.log(`    gen ${g.generation} · ${g.label.padEnd(34)} ${g.pokedexes.join(', ')}`));
+}
+
+/* ================================================================== */
+/* Génération : contenu des pokédex régionaux                          */
+/* ================================================================== */
+
+/*
+ * Quels Pokémon apparaissent dans quel jeu. C'est ce qui permet au Pokédex du
+ * site de ne montrer que les espèces réellement présentes dans le jeu choisi,
+ * et à l'analyseur d'équipe de ne proposer que des Pokémon attrapables.
+ *
+ * Les entrées sont triées par numéro régional : c'est l'ordre dans lequel le
+ * joueur les rencontre, et celui de son Pokédex en jeu.
+ */
+async function buildPokedexes() {
+  await import(join(DATA, 'games.js'));
+  const games = globalThis.POKESTATS_GAMES.games;
+
+  /* On ne récupère que les pokédex réellement utilisés par un jeu retenu. */
+  const wanted = new Set();
+  games.forEach((g) => g.pokedexes.forEach((p) => wanted.add(p)));
+
+  console.log(`  → ${wanted.size} pokédex régionaux depuis PokéAPI…`);
+
+  const dexes = {};
+  for (const name of [...wanted].sort()) {
+    const doc = await (await fetch(`${POKEAPI_REST}/pokedex/${name}`)).json();
+    const entries = (doc.pokemon_entries || [])
+      .slice()
+      .sort((a, b) => a.entry_number - b.entry_number)
+      .map((e) => e.pokemon_species.name);
+    dexes[name] = entries;
+  }
+
+  const total = Object.values(dexes).reduce((n, l) => n + l.length, 0);
+
+  const meta = {
+    provenance: 'vérifié — généré depuis PokéAPI (/pokedex)',
+    source: 'PokéAPI /pokedex/{nom} — entrées triées par numéro régional',
+    generatedAt: new Date().toISOString().slice(0, 10),
+    regenerate: 'npm run build:pokedex',
+    pokedexCount: Object.keys(dexes).length,
+    entryCount: total
+  };
+
+  const js = `/*
+ * data/pokedex.js — Contenu des pokédex régionaux.
+ * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
+ *   Source    : PokéAPI /pokedex
+ *   Régénérer : npm run build:pokedex
+ *   ${Object.keys(dexes).length} pokédex · ${total} entrées
+ *
+ * dexes["<pokedex>"] = [identifiants d'espèces, dans l'ordre du jeu]
+ */
+(function (root) {
+  'use strict';
+  root.POKESTATS_POKEDEX = {
+    meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
+    dexes: ${JSON.stringify(dexes)}
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+  await writeFile(join(DATA, 'pokedex.js'), js, 'utf8');
+  const ko = (Buffer.byteLength(js) / 1024).toFixed(0);
+  console.log(`✔ data/pokedex.js       ${Object.keys(dexes).length} pokédex · ${total} entrées · ${ko} Ko`);
+  Object.keys(dexes).sort().forEach((k) =>
+    console.log(`    ${k.padEnd(24)} ${String(dexes[k].length).padStart(4)}`));
+}
+
+/* ================================================================== */
 /* Auto-test (aucune dépendance réseau)                                */
 /* ================================================================== */
 
@@ -1002,7 +1424,7 @@ async function main() {
 
   if (!args.size) {
     console.log(
-      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--self-test]'
+      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--gens] [--games] [--pokedex] [--self-test]'
     );
     return;
   }
@@ -1012,6 +1434,9 @@ async function main() {
   if (all || args.has('--tiers')) await buildTiers();
   if (all || args.has('--types')) await buildTypes();
   if (all || args.has('--moves')) await buildMoves();
+  if (all || args.has('--gens')) await buildGenerations();
+  if (all || args.has('--games')) await buildGames();
+  if (all || args.has('--pokedex')) await buildPokedexes();
 }
 
 main().catch((err) => { console.error(err); process.exitCode = 1; });

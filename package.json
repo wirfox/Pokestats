@@ -13,7 +13,10 @@
     "verify:data": "node scripts/verify-data.mjs",
     "build:types": "node scripts/build-data.mjs --types",
     "build:game8": "node scripts/fetch-game8.mjs",
-    "build:moves": "node scripts/build-data.mjs --moves"
+    "build:moves": "node scripts/build-data.mjs --moves",
+    "build:gens": "node scripts/build-data.mjs --gens",
+    "build:games": "node scripts/build-data.mjs --games",
+    "build:pokedex": "node scripts/build-data.mjs --pokedex"
   },
   "keywords": [
     "pokemon",
