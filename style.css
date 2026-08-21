@@ -1573,3 +1573,61 @@ code {
   .dex-modal { padding: 10px; }
   .dex-modal-panel { padding: 16px; }
 }
+
+/* ================================================================== */
+/* Suggestions de saisie                                               */
+/* ================================================================== */
+
+/*
+ * Rattachée à <body> et positionnée en fixe : les panneaux portent un
+ * `clip-path` qui découperait une liste placée à l'intérieur.
+ */
+.suggest-box {
+  position: fixed;
+  z-index: 150;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+.suggest-box[hidden] { display: none; }
+
+.suggest-item {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.suggest-item:hover,
+.suggest-item.is-active {
+  background: rgba(157, 92, 255, 0.16);
+  border-color: var(--violet);
+}
+
+.suggest-img {
+  width: 34px; height: 34px;
+  flex: none;
+  object-fit: contain;
+}
+
+.suggest-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.suggest-name { font-size: 0.85rem; font-weight: 700; }
+.suggest-meta { font-size: 0.64rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+.suggest-types { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; flex: none; }
+.suggest-types .type-chip { font-size: 0.55rem; padding: 1px 6px; }
+.suggest-types .type-icon { width: 11px; height: 11px; }
+
+@media (max-width: 480px) {
+  .suggest-types { display: none; }   /* la place manque, le nom prime */
+}

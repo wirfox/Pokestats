@@ -157,6 +157,137 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Suggestions de saisie                                               */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Liste déroulante sous le champ de recherche.
+   *
+   * Elle est rattachée à <body>, pas au panneau : les panneaux portent un
+   * `clip-path` qui découpe leurs coins, et il rognerait une liste positionnée
+   * à l'intérieur. Même raison que pour le menu du sélecteur de jeu.
+   *
+   * Les propositions viennent de `entries`, déjà restreint au jeu choisi : on
+   * ne propose jamais un Pokémon que le joueur ne peut pas rencontrer.
+   */
+  var MAX_SUGGESTIONS = 8;
+  var boiteSuggestions = null;
+  var suggestions = [];
+  var indexActif = -1;
+
+  function creerBoite() {
+    boiteSuggestions = document.createElement('div');
+    boiteSuggestions.className = 'suggest-box';
+    boiteSuggestions.id = 'dex-suggest';
+    boiteSuggestions.setAttribute('role', 'listbox');
+    boiteSuggestions.hidden = true;
+    document.body.appendChild(boiteSuggestions);
+
+    boiteSuggestions.addEventListener('mousedown', function (event) {
+      /* mousedown plutôt que click : le champ perdrait le focus avant que le
+       * clic n'aboutisse, et la liste se refermerait sous le doigt. */
+      var item = event.target.closest('[data-slug]');
+      if (!item) return;
+      event.preventDefault();
+      choisir(item.dataset.slug);
+    });
+  }
+
+  /** Positionne la liste sous le champ, sans jamais sortir de l'écran. */
+  function placerBoite() {
+    var champ = $('dex-search');
+    var rect = champ.getBoundingClientRect();
+    boiteSuggestions.style.left = Math.max(8, rect.left) + 'px';
+    boiteSuggestions.style.top = (rect.bottom + 6) + 'px';
+    boiteSuggestions.style.width = Math.min(rect.width, root.innerWidth - 16) + 'px';
+    boiteSuggestions.style.maxHeight =
+      Math.max(160, root.innerHeight - rect.bottom - 20) + 'px';
+  }
+
+  /**
+   * Cherche parmi les Pokémon du jeu, par pertinence décroissante :
+   *
+   *   1. le NOM FRANÇAIS commence par la saisie      → Arcanin, Archéduc
+   *   2. l'identifiant anglais commence par la saisie → Cryodo (arctibax)
+   *   3. la saisie apparaît ailleurs dans l'un ou l'autre → Carchacrok (garchomp)
+   *
+   * L'ordre compte : en tapant « arc », on pense au nom qu'on lit à l'écran.
+   * Voir Cryodo arriver avant Archéduc déroute, même si la correspondance est
+   * réelle du côté anglais.
+   */
+  function chercher(saisie) {
+    var cle = names.normalize(saisie);
+    if (!cle) return [];
+    var nomFr = [];
+    var idAnglais = [];
+    var ailleurs = [];
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var nom = names.normalize(e.frName);
+      var slug = names.normalize(e.slug);
+      if (nom.indexOf(cle) === 0) nomFr.push(e);
+      else if (slug.indexOf(cle) === 0) idAnglais.push(e);
+      else if (nom.indexOf(cle) !== -1 || slug.indexOf(cle) !== -1) ailleurs.push(e);
+      /* On peut s'arrêter dès que les seuls noms français suffisent à remplir
+       * la liste : les catégories suivantes ne seraient pas affichées. */
+      if (nomFr.length >= MAX_SUGGESTIONS) break;
+    }
+    return nomFr.concat(idAnglais, ailleurs).slice(0, MAX_SUGGESTIONS);
+  }
+
+  function rendreSuggestions() {
+    if (!suggestions.length) {
+      boiteSuggestions.hidden = true;
+      $('dex-search').setAttribute('aria-expanded', 'false');
+      return;
+    }
+    boiteSuggestions.innerHTML = suggestions.map(function (e, i) {
+      return '<button type="button" class="suggest-item' +
+        (i === indexActif ? ' is-active' : '') + '" data-slug="' +
+        escapeHtml(e.slug) + '" role="option" aria-selected="' + (i === indexActif) + '">' +
+        '<img class="suggest-img" src="' + escapeHtml(artworkUrl(e.num)) + '" alt="" ' +
+          'loading="lazy" width="34" height="34" onerror="this.style.visibility=\'hidden\'">' +
+        '<span class="suggest-text">' +
+          '<span class="suggest-name">' + escapeHtml(e.frName) + '</span>' +
+          '<span class="suggest-meta">n°' + e.num + ' · BST ' + e.bst + '</span>' +
+        '</span>' +
+        '<span class="suggest-types">' + ui.typeChips(e.types) + '</span>' +
+      '</button>';
+    }).join('');
+    boiteSuggestions.hidden = false;
+    placerBoite();
+    $('dex-search').setAttribute('aria-expanded', 'true');
+  }
+
+  function fermerSuggestions() {
+    suggestions = [];
+    indexActif = -1;
+    if (boiteSuggestions) boiteSuggestions.hidden = true;
+    $('dex-search').setAttribute('aria-expanded', 'false');
+  }
+
+  /** Sélectionne un Pokémon proposé : on ouvre directement sa fiche. */
+  function choisir(slug) {
+    var e = entries.filter(function (x) { return x.slug === slug; })[0];
+    if (e) {
+      $('dex-search').value = e.frName;
+      filters.text = e.frName;
+      applyFilters();
+    }
+    fermerSuggestions();
+    openDetail(slug);
+  }
+
+  function naviguer(delta) {
+    if (!suggestions.length) return;
+    indexActif = (indexActif + delta + suggestions.length) % suggestions.length;
+    rendreSuggestions();
+    var actif = boiteSuggestions.querySelector('.is-active');
+    if (actif && actif.scrollIntoView) actif.scrollIntoView({ block: 'nearest' });
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Fiche détaillée                                                     */
   /* ------------------------------------------------------------------ */
 
@@ -239,10 +370,50 @@
     if (PokeStats.gamebar) PokeStats.gamebar.mount($('game-bar'));
     names.init({ buildFullIndex: false });
 
-    $('dex-search').addEventListener('input', function (e) {
+    creerBoite();
+    var champ = $('dex-search');
+    champ.setAttribute('role', 'combobox');
+    champ.setAttribute('aria-autocomplete', 'list');
+    champ.setAttribute('aria-controls', 'dex-suggest');
+    champ.setAttribute('aria-expanded', 'false');
+
+    champ.addEventListener('input', function (e) {
       filters.text = e.target.value;
       applyFilters();
+      suggestions = chercher(e.target.value);
+      indexActif = -1;
+      rendreSuggestions();
     });
+
+    champ.addEventListener('keydown', function (event) {
+      if (event.key === 'ArrowDown') { event.preventDefault(); naviguer(1); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); naviguer(-1); }
+      else if (event.key === 'Enter') {
+        if (indexActif >= 0 && suggestions[indexActif]) {
+          event.preventDefault();
+          choisir(suggestions[indexActif].slug);
+        } else if (suggestions.length === 1) {
+          event.preventDefault();
+          choisir(suggestions[0].slug);
+        }
+      } else if (event.key === 'Escape') {
+        fermerSuggestions();
+      }
+    });
+
+    champ.addEventListener('focus', function () {
+      if (champ.value) { suggestions = chercher(champ.value); rendreSuggestions(); }
+    });
+    champ.addEventListener('blur', function () {
+      /* Léger délai : sans lui, le clic sur une proposition n'aboutirait pas. */
+      setTimeout(fermerSuggestions, 120);
+    });
+    root.addEventListener('resize', function () {
+      if (boiteSuggestions && !boiteSuggestions.hidden) placerBoite();
+    });
+    root.addEventListener('scroll', function () {
+      if (boiteSuggestions && !boiteSuggestions.hidden) placerBoite();
+    }, true);
     $('dex-sort').addEventListener('change', function (e) {
       filters.sort = e.target.value;
       applyFilters();
@@ -259,6 +430,7 @@
     $('btn-clear-filters').addEventListener('click', function () {
       filters = { text: '', types: [], sort: filters.sort };
       $('dex-search').value = '';
+      fermerSuggestions();
       renderTypeFilter();
       applyFilters();
     });

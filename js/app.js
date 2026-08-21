@@ -297,12 +297,24 @@
   /* Autocomplétion                                                      */
   /* ------------------------------------------------------------------ */
 
+  /**
+   * Propositions de saisie, restreintes au jeu sélectionné.
+   *
+   * Sans ce filtre, un joueur de Rouge/Bleu se verrait proposer Carchacrok,
+   * qui n'existe pas dans son jeu. On élargit tout de même à l'index complet
+   * si le filtrage ne laisse rien : mieux vaut une proposition hors-jeu, que
+   * l'analyse signalera, qu'aucune proposition du tout.
+   */
   function refreshDatalist(datalist, value) {
     if (!value || value.length < 2) {
       datalist.innerHTML = '';
       return;
     }
-    datalist.innerHTML = names.suggest(value, 8).map(function (s) {
+    var brut = names.suggest(value, 24);
+    var duJeu = brut.filter(function (s) { return gameState.isInGame(s.slug); });
+    var retenues = (duJeu.length ? duJeu : brut).slice(0, 8);
+
+    datalist.innerHTML = retenues.map(function (s) {
       return '<option value="' + ui.escapeHtml(s.label) + '"></option>';
     }).join('');
   }
