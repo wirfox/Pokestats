@@ -260,6 +260,56 @@ async function verifyForms() {
   return { checked: rows.length, problems };
 }
 
+/* ------------------------------------------------------------------ */
+/* 4. Catalogue des capacités                                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Conseiller un échange d'attaques demande au joueur d'en PERDRE une
+ * définitivement. Le conseil ne vaut donc que si le nom affiché et les
+ * valeurs de combat sont les bons : on les confronte un par un à PokéAPI.
+ *
+ * Les valeurs elles-mêmes (puissance, précision, PP) viennent de @pkmn/dex,
+ * qui les sert par génération ; PokéAPI ne donne que les valeurs actuelles.
+ * On ne compare donc que ce qui est comparable : l'identifiant, le nom
+ * français, et le type.
+ */
+async function verifyMoves() {
+  await import(join(DATA, 'move-index.js'));
+  const index = globalThis.POKESTATS_MOVE_INDEX;
+  const slugs = Object.keys(index.moves);
+
+  process.stderr.write(`Vérification de ${slugs.length} capacités…\n`);
+
+  const problems = [];
+  await mapLimit(slugs, CONCURRENCY, async (slug) => {
+    const doc = await getJson(`${BASE}/move/${slug}`);
+    if (!doc) {
+      problems.push({ message: `« ${slug} » n'existe pas dans PokéAPI.` });
+      return;
+    }
+
+    const attendu = index.moves[slug];
+    const nomFr = (doc.names || [])
+      .filter((n) => n.language && n.language.name === 'fr')
+      .map((n) => n.name)[0];
+    if (nomFr && normalize(nomFr) !== normalize(attendu[0])) {
+      problems.push({
+        message: `« ${slug} » : nom « ${attendu[0]} », PokéAPI dit « ${nomFr} ».`
+      });
+    }
+
+    const type = doc.type && doc.type.name;
+    if (type && type !== attendu[1]) {
+      problems.push({
+        message: `« ${slug} » : type « ${attendu[1]} », PokéAPI dit « ${type} ».`
+      });
+    }
+  });
+
+  return { checked: slugs.length, problems };
+}
+
 function report(title, result) {
   console.log(`\n${title}`);
   console.log('-'.repeat(title.length));
@@ -271,10 +321,12 @@ function report(title, result) {
 
 async function main() {
   const args = new Set(process.argv.slice(2));
-  const cible = args.has('--names') || args.has('--tiers') || args.has('--forms');
+  const cible = args.has('--names') || args.has('--tiers') ||
+                args.has('--forms') || args.has('--moves');
   const wantNames = args.has('--names') || !cible;
   const wantTiers = args.has('--tiers') || !cible;
   const wantForms = args.has('--forms') || !cible;
+  const wantMoves = args.has('--moves') || !cible;
   const asJson = args.has('--json');
 
   const out = {};
@@ -282,6 +334,7 @@ async function main() {
     if (wantTiers) out.tiers = await verifyTiers();
     if (wantNames) out.names = await verifyNames();
     if (wantForms) out.forms = await verifyForms();
+    if (wantMoves) out.moves = await verifyMoves();
   } catch (err) {
     console.error(`\n✖ Vérification impossible : ${err.message}`);
     console.error('  PokéAPI doit être joignable pour auditer ces fichiers.\n');
@@ -295,6 +348,7 @@ async function main() {
     if (out.tiers) report('Identifiants de data/tiers.js', out.tiers);
     if (out.names) report('Noms français de data/names-fr.js', out.names);
     if (out.forms) report('Libellés de formes de data/forms.js', out.forms);
+    if (out.moves) report('Capacités de data/move-index.js', out.moves);
     console.log(
       '\nRappel : ce script ne peut PAS vérifier les TIERS eux-mêmes — PokéAPI\n' +
       'n\'expose pas cette notion. Leur source est @pkmn/dex, dont la version\n' +

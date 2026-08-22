@@ -1858,3 +1858,215 @@ code {
 
 /* Repère visuel dans le Pokédex : une vignette de forme reste une forme. */
 .dex-card-name { overflow-wrap: anywhere; }
+
+/* ================================================================== */
+/* Attaques équipées et échange d'attaque                              */
+/* ================================================================== */
+
+/*
+ * L'application ne devine jamais les quatre attaques d'un Pokémon : elle ne
+ * peut pas les connaître. Ce bloc est donc replié par défaut — il ne se
+ * déploie que quand le joueur décide de les saisir.
+ */
+.moveset {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  overflow: hidden;
+}
+
+.moveset-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.moveset-toggle:hover { color: var(--text); }
+.moveset-toggle-label { flex: 1 1 auto; }
+
+.moveset-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+
+.moveset-chevron { transition: transform 0.15s; }
+.moveset-toggle[aria-expanded="true"] .moveset-chevron { transform: rotate(180deg); }
+
+.moveset-body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.moveset-body[hidden] { display: none; }
+
+.moveset-empty,
+.moveset-warn {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+.moveset-warn { color: var(--gold); }
+
+/* --- Liste des attaques --------------------------------------------- */
+
+.move-list-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.move-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+/* L'attaque qui saute : marquée, jamais seulement décrite. */
+.move-row.is-out {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.move-row-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 160px;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.move-row-stats {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.move-stab,
+.move-flag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(157, 92, 255, 0.28);
+  color: var(--text);
+}
+.move-flag { background: rgba(255, 194, 61, 0.24); }
+
+.move-remove {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+  font-size: 1rem;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.move-remove:hover { color: var(--text); border-color: var(--violet); }
+
+/* --- Saisie ---------------------------------------------------------- */
+
+.moveset-add .text-input,
+.moveset-new .text-input { font-size: 0.86rem; padding: 8px 11px; }
+
+.moveset-new {
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.moveset-new-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.moveset-new-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.moveset-new-row .text-input { flex: 1 1 160px; min-width: 0; }
+.moveset-ask { flex: 0 0 auto; font-size: 0.8rem; padding: 8px 14px; }
+
+.moveset-apply { margin-top: 8px; font-size: 0.8rem; padding: 7px 14px; }
+
+/* --- Verdict --------------------------------------------------------- */
+
+.advice {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  background: var(--bg-panel);
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* Trois tons seulement : oui, non, et « je ne tranche pas ». Ce dernier
+ * n'est pas un demi-oui — il a sa propre couleur, neutre. */
+.advice-oui    { border-left-color: var(--good);    background: var(--good-bg); }
+.advice-non    { border-left-color: var(--bad);     background: var(--bad-bg); }
+.advice-neutre { border-left-color: var(--warn);    background: var(--warn-bg); }
+
+.advice-oui .advice-verdict    { color: var(--good); }
+.advice-non .advice-verdict    { color: var(--bad); }
+.advice-neutre .advice-verdict { color: var(--warn); }
+
+.advice-verdict {
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.advice-drop { margin: 0; font-size: 0.85rem; color: var(--text-dim); }
+
+.advice-reasons {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.advice-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--gold);
+  line-height: 1.5;
+}

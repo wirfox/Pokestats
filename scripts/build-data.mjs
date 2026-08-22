@@ -1400,6 +1400,221 @@ async function buildPokedexes() {
 }
 
 /* ================================================================== */
+/* Catalogue des capacités                                             */
+/* ================================================================== */
+
+/**
+ * Texte français officiel d'une capacité, pour celles que le moteur refuse de
+ * chiffrer.
+ *
+ * Danse-Lames, Feu Follet ou Ténacité n'ont ni puissance ni précision
+ * comparables à celles d'une attaque : les mettre en concurrence par un score
+ * serait inventer une équivalence qui n'existe pas. Plutôt que de trancher à
+ * tort, l'application montre au joueur ce que la capacité fait, en français,
+ * et le laisse décider.
+ *
+ * C'est pourquoi seules les capacités de STATUT embarquent ce texte : pour une
+ * attaque, la puissance, la précision et le type disent déjà tout.
+ */
+async function fetchFrenchMoveTexts(ids) {
+  const voulus = new Set(ids);
+  const query = `query {
+    move {
+      name
+      moveflavortexts(where: {language: {name: {_eq: "fr"}}},
+                      order_by: {version_group_id: desc}, limit: 1) { flavor_text }
+    }
+  }`;
+  const res = await fetch(POKEAPI_GRAPHQL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  if (!res.ok) throw new Error(`GraphQL descriptions → HTTP ${res.status}`);
+  const payload = await res.json();
+  if (payload.errors) throw new Error('GraphQL descriptions : erreur');
+
+  const out = new Map();
+  for (const row of payload.data?.move || []) {
+    if (!voulus.has(row.name)) continue;
+    const texte = row.moveflavortexts?.[0]?.flavor_text;
+    if (texte) out.set(row.name, texte.replace(/[\n\f\r]+/g, ' ').trim());
+  }
+  return out;
+}
+
+const CATEGORIE = { Physical: 'phy', Special: 'spe', Status: 'sta' };
+
+/**
+ * Correspondances d'identifiants entre Pokémon Showdown et PokéAPI.
+ *
+ * Comme pour les formes, rien n'est retenu sur une supposition : chaque
+ * candidat est confronté à la liste réelle de PokéAPI, et une capacité qui
+ * n'y figure pas est écartée plutôt qu'inventée.
+ */
+const MOVE_CANDIDATES = [
+  (slug) => slug,
+  (slug) => slug.replace(/^vise-/, 'vice-')   // Vise Grip / vice-grip
+];
+
+function resolveMoveSlug(showdownName, valides) {
+  const base = moveSlug(showdownName);
+  for (const transform of MOVE_CANDIDATES) {
+    const candidat = transform(base);
+    if (candidat && valides.has(candidat)) return candidat;
+  }
+  return null;
+}
+
+/** Identifiants réels des capacités, depuis PokéAPI. */
+async function fetchMoveReference() {
+  const res = await fetch(`${POKEAPI_REST}/move?limit=100000`);
+  if (!res.ok) throw new Error(`PokéAPI /move → HTTP ${res.status}`);
+  const data = await res.json();
+  return new Set((data.results || []).map((r) => r.name));
+}
+
+/** Valeurs de combat d'une capacité à une génération donnée. */
+function mesuresMove(move) {
+  return [
+    move.type.toLowerCase(),
+    CATEGORIE[move.category] || 'sta',
+    move.basePower || 0,
+    /* `accuracy === true` signifie « ne peut pas rater » (Éclair, Ébullition
+     * des capacités de statut sur soi-même…). On l'encode 100 : c'est ce que
+     * le moteur doit utiliser dans un calcul d'espérance de dégâts. */
+    move.accuracy === true ? 100 : (move.accuracy || 0),
+    move.pp || 0
+  ];
+}
+
+/**
+ * Catalogue complet des capacités, avec ce qui change d'une génération à
+ * l'autre.
+ *
+ * Lance-Flammes valait 95 de puissance jusqu'à la 5G et 90 depuis ; Morsure
+ * était de type Normal en 1G ; la répartition physique/spécial ne dépendait
+ * pas de la capacité mais de son type avant la 4G. Servir les valeurs
+ * d'aujourd'hui à un joueur de Rouge Feu serait faux — et c'est précisément
+ * sur ces valeurs que l'application conseille d'échanger une attaque.
+ *
+ * Le fichier est donc bâti en deux temps : les valeurs de la 9G comme
+ * référence, puis, pour chaque génération, uniquement ce qui en diffère.
+ */
+async function buildMoveIndex() {
+  const dex9 = Dex.forGen(9);
+
+  console.log('  → identifiants de capacités depuis PokéAPI…');
+  const valides = await fetchMoveReference();
+
+  console.log('  → noms français des capacités…');
+  let frNames = new Map();
+  try { frNames = await fetchFrenchMoveNames(); } catch (err) {
+    throw new Error(`noms français indisponibles : ${err.message}`);
+  }
+
+  const moves = {};
+  const parId = new Map();     // identifiant PokéAPI → identifiant Showdown
+  const statuts = [];
+  let sansNomFr = 0;
+  let ecartees = 0;
+
+  for (const m of dex9.moves.all()) {
+    if (!m.exists || m.num <= 0) continue;
+    if (m.isNonstandard === 'CAP') continue;
+    /* Capacités Z et Gigamax : déclenchées par un objet ou un phénomène, elles
+     * n'occupent jamais l'un des quatre emplacements d'attaque. Les proposer
+     * au choix n'aurait aucun sens. */
+    if (m.isZ || m.isMax) { ecartees += 1; continue; }
+
+    const id = resolveMoveSlug(m.name, valides);
+    if (!id) { ecartees += 1; continue; }
+
+    const fr = frNames.get(id);
+    if (!fr) sansNomFr += 1;
+    const mesures = mesuresMove(m);
+    moves[id] = [fr || m.name].concat(mesures, [m.priority || 0, m.gen || 1]);
+    parId.set(m.id, id);
+    if (mesures[1] === 'sta') statuts.push(id);
+  }
+
+  console.log('  → descriptions françaises des capacités de statut…');
+  let textes = new Map();
+  try { textes = await fetchFrenchMoveTexts(statuts); } catch (err) {
+    console.log(`  ! descriptions indisponibles (${err.message}) — on continue sans`);
+  }
+  const effets = {};
+  for (const [id, texte] of textes) effets[id] = texte;
+
+  /* Écarts par génération : on ne stocke que ce qui diffère de la référence. */
+  const parGeneration = {};
+  let ecarts = 0;
+  for (const generation of GENERATIONS) {
+    const dex = Dex.forGen(generation);
+    const table = {};
+    for (const m of dex.moves.all()) {
+      if (!m.exists || m.num <= 0 || m.isNonstandard === 'CAP') continue;
+      if ((m.gen || 1) > generation) continue;   // capacité pas encore inventée
+      const id = parId.get(m.id);
+      if (!id || !moves[id]) continue;
+      const mesures = mesuresMove(m);
+      const reference = moves[id].slice(1, 6);
+      if (JSON.stringify(mesures) !== JSON.stringify(reference)) {
+        table[id] = mesures;
+        ecarts += 1;
+      }
+    }
+    parGeneration[generation] = table;
+  }
+
+  const meta = {
+    provenance: 'vérifié — généré depuis le paquet npm « @pkmn/dex » et PokéAPI',
+    source: `@pkmn/dex@${VERSIONS['@pkmn/dex']} (type, catégorie, puissance, ` +
+            'précision, PP, priorité) — PokéAPI GraphQL (noms et descriptions français)',
+    generatedAt: new Date().toISOString().slice(0, 10),
+    regenerate: 'npm run build:move-index',
+    moveCount: Object.keys(moves).length,
+    statusCount: statuts.length,
+    describedCount: Object.keys(effets).length,
+    overrideCount: ecarts,
+    discardedCount: ecartees,
+    note: 'Les valeurs de référence sont celles de la 9G ; « parGeneration » ' +
+          'ne contient que ce qui en diffère à chaque génération.'
+  };
+
+  const js = `/*
+ * data/move-index.js — Catalogue des capacités.
+ * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
+ *   Source    : @pkmn/dex + PokéAPI (noms et descriptions français)
+ *   Régénérer : npm run build:move-index
+ *   ${Object.keys(moves).length} capacités · ${ecarts} valeurs propres à une génération
+ *
+ * moves["<capacité>"]          = [nomFr, type, "phy"|"spe"|"sta", puissance,
+ *                                 précision, PP, priorité, génération d'apparition]
+ * parGeneration[N]["<capacité>"] = [type, catégorie, puissance, précision, PP]
+ *                                 (uniquement si différent de la référence)
+ * effets["<capacité>"]         = description française (capacités de statut)
+ */
+(function (root) {
+  'use strict';
+  root.POKESTATS_MOVE_INDEX = {
+    meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
+    moves: ${JSON.stringify(moves)},
+    parGeneration: ${JSON.stringify(parGeneration)},
+    effets: ${JSON.stringify(effets)}
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+  await writeFile(join(DATA, 'move-index.js'), js, 'utf8');
+  const ko = (Buffer.byteLength(js) / 1024).toFixed(0);
+  console.log(`✔ data/move-index.js    ${Object.keys(moves).length} capacités · ` +
+    `${statuts.length} de statut · ${Object.keys(effets).length} décrites · ` +
+    `${ecarts} écarts de génération · ${ko} Ko`);
+  console.log(`    ${ecartees} capacités écartées (Z, Gigamax, inconnues de PokéAPI)`);
+  if (sansNomFr) console.log(`  ! ${sansNomFr} capacités sans nom français`);
+}
+
+/* ================================================================== */
 /* Formes jouables                                                     */
 /* ================================================================== */
 
@@ -1691,7 +1906,7 @@ async function main() {
 
   if (!args.size) {
     console.log(
-      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--gens] [--games] [--pokedex] [--forms] [--self-test]'
+      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--gens] [--games] [--pokedex] [--forms] [--move-index] [--self-test]'
     );
     return;
   }
@@ -1705,6 +1920,7 @@ async function main() {
   if (all || args.has('--games')) await buildGames();
   if (all || args.has('--pokedex')) await buildPokedexes();
   if (all || args.has('--forms')) await buildForms();
+  if (all || args.has('--move-index')) await buildMoveIndex();
 }
 
 main().catch((err) => { console.error(err); process.exitCode = 1; });

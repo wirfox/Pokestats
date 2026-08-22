@@ -18,6 +18,7 @@
     "build:games": "node scripts/build-data.mjs --games",
     "build:pokedex": "node scripts/build-data.mjs --pokedex",
     "build:forms": "node scripts/build-data.mjs --forms",
+    "build:move-index": "node scripts/build-data.mjs --move-index",
     "test:mobile": "node test/mobile.test.mjs"
   },
   "keywords": [

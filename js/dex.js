@@ -65,6 +65,25 @@
     return out;
   }
 
+  /**
+   * Capacités apprenables : identifiant → liste des versions où elle
+   * s'apprend. PokéAPI fournit déjà cette information dans la fiche de combat,
+   * aucune requête supplémentaire n'est nécessaire.
+   */
+  function learnableFrom(pokemonDoc) {
+    var out = Object.create(null);
+    (pokemonDoc.moves || []).forEach(function (entry) {
+      var slug = entry.move && entry.move.name;
+      if (!slug) return;
+      var versions = out[slug] || (out[slug] = []);
+      (entry.version_group_details || []).forEach(function (d) {
+        var vg = d.version_group && d.version_group.name;
+        if (vg && versions.indexOf(vg) === -1) versions.push(vg);
+      });
+    });
+    return out;
+  }
+
   function bstOf(stats) {
     return STAT_KEYS.reduce(function (sum, k) { return sum + (stats[k] || 0); }, 0);
   }
@@ -167,6 +186,10 @@
       abilities: (pokemonDoc.abilities || []).map(function (a) {
         return { slug: a.ability.name, hidden: !!a.is_hidden, slot: a.slot };
       }),
+      /* Capacités apprenables, telles que PokéAPI les connaît, avec les
+       * versions concernées. Sert à repérer une faute de frappe — jamais à
+       * refuser une capacité : c'est le jeu du joueur qui fait foi, pas nous. */
+      learnable: learnableFrom(pokemonDoc),
       sprite: spriteFrom(pokemonDoc),
       isLegendary: speciesDoc ? !!speciesDoc.is_legendary : false,
       isMythical: speciesDoc ? !!speciesDoc.is_mythical : false
@@ -468,6 +491,7 @@
     STAT_FR: STAT_FR,
     bstOf: bstOf,
     conditionToFrench: conditionToFrench,
+    learnableFrom: learnableFrom,
     applyGeneration: applyGeneration,
     detailsForForm: detailsForForm,
     UNPLAYABLE_FORM: UNPLAYABLE_FORM

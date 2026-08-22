@@ -266,12 +266,165 @@
       return;
     }
     content.innerHTML = ui.monCard(slot.record, { showStats: true }) +
-      ui.formPickerHtml(slot.record);
+      ui.formPickerHtml(slot.record) +
+      ui.movesetHtml(slot.record, teams.movesOf(index), {
+        index: index, open: openMovesets[index]
+      });
     ui.wireFormPicker(content, function (_slug, label) {
       var input = wrapper.querySelector('.slot-input');
       input.value = label;
       setSlotInput(index, label);
     });
+    wireMoveset(content, index);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Attaques équipées                                                   */
+  /* ------------------------------------------------------------------ */
+
+  /* Le bloc « attaques » reste ouvert d'un rendu à l'autre : il se referme
+   * sinon à chaque ajout, ce qui rendrait la saisie des quatre attaques
+   * pénible. */
+  var openMovesets = [];
+
+  /** Capacités que CE Pokémon peut apprendre, pour restreindre les propositions. */
+  function learnableOf(record) {
+    return (record && record.learnable) || null;
+  }
+
+  /**
+   * Signale une capacité que PokéAPI n'associe pas à ce Pokémon.
+   *
+   * Ce n'est jamais un refus : c'est le jeu du joueur qui fait foi, pas notre
+   * copie des données. Mais neuf fois sur dix, c'est une faute de frappe.
+   */
+  function noteApprentissage(record, slug) {
+    var table = learnableOf(record);
+    if (!table) return null;
+    if (!table[slug]) {
+      return 'PokéAPI n’associe pas cette capacité à ' + record.frName +
+        ' : vérifie l’orthographe. Le conseil ci-dessus reste calculé sur ses ' +
+        'vraies valeurs.';
+    }
+    var jeu = gameState.current();
+    if (jeu && table[slug].indexOf(jeu.id) === -1) {
+      return 'PokéAPI ne la liste pas pour ' + jeu.label +
+        ', mais pour d’autres versions. Si ton jeu te la propose, fie-toi à ton jeu.';
+    }
+    return null;
+  }
+
+  function wireMoveset(container, index) {
+    var bloc = container.querySelector('.moveset');
+    if (!bloc) return;
+    var slot = slots[index];
+    var record = slot && slot.record;
+    if (!record) return;
+
+    var corps = bloc.querySelector('.moveset-body');
+
+    bloc.querySelector('.moveset-toggle').addEventListener('click', function () {
+      var ouvert = corps.hidden;
+      corps.hidden = !ouvert;
+      this.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+      openMovesets[index] = ouvert;
+    });
+
+    bloc.querySelectorAll('.move-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        teams.removeMove(index, btn.dataset.move);
+        openMovesets[index] = true;
+        renderSlot(index);
+      });
+    });
+
+    var ajout = bloc.querySelector('.moveset-input');
+    if (ajout) {
+      var listeAjout = bloc.querySelector('#moveset-' + index + '-list');
+      ajout.addEventListener('input', function () {
+        remplirCapacites(listeAjout, ajout.value, record);
+      });
+      var valider = function () {
+        var slug = PokeStats.movedex.resolve(ajout.value);
+        if (!slug) return;
+        teams.addMove(index, slug);
+        openMovesets[index] = true;
+        renderSlot(index);
+      };
+      ajout.addEventListener('change', valider);
+      ajout.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); valider(); }
+      });
+    }
+
+    var candidat = bloc.querySelector('.moveset-candidate');
+    var listeCandidat = bloc.querySelector('#moveset-' + index + '-newlist');
+    var conseil = bloc.querySelector('.moveset-advice');
+
+    candidat.addEventListener('input', function () {
+      remplirCapacites(listeCandidat, candidat.value, record);
+    });
+
+    var demander = function () {
+      var saisie = candidat.value.trim();
+      if (!saisie) { conseil.hidden = true; return; }
+      var slug = PokeStats.movedex.resolve(saisie);
+      if (!slug) {
+        conseil.hidden = false;
+        conseil.innerHTML = '<div class="advice advice-non">' +
+          '<p class="advice-verdict">Capacité inconnue</p>' +
+          '<ul class="advice-reasons"><li>« ' + ui.escapeHtml(saisie) +
+          ' » ne correspond à aucune capacité du catalogue. Vérifie l’orthographe.</li></ul>' +
+          '</div>';
+        return;
+      }
+      var verdict = PokeStats.moveset.evaluate(record, teams.movesOf(index), slug);
+      conseil.hidden = false;
+      conseil.innerHTML = ui.moveAdviceHtml(record, verdict, noteApprentissage(record, slug)) +
+        (verdict.code === 'remplace' || verdict.code === 'apprends'
+          ? '<button type="button" class="btn moveset-apply" data-move="' +
+            ui.escapeHtml(slug) + '">Appliquer l’échange</button>'
+          : '');
+
+      var appliquer = conseil.querySelector('.moveset-apply');
+      if (appliquer) {
+        appliquer.addEventListener('click', function () {
+          var actuelles = teams.movesOf(index);
+          var place = verdict.drop ? actuelles.indexOf(verdict.drop.slug) : -1;
+          /* La nouvelle attaque prend la place de celle qui saute : l'ordre
+           * affiché reste celui que le joueur a en tête. */
+          if (place !== -1) actuelles[place] = slug;
+          else actuelles = actuelles.concat([slug]);
+          teams.setMoves(index, actuelles);
+          openMovesets[index] = true;
+          renderSlot(index);
+        });
+      }
+    };
+
+    bloc.querySelector('.moveset-ask').addEventListener('click', demander);
+    candidat.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); demander(); }
+    });
+  }
+
+  /**
+   * Propositions de capacités, restreintes à celles que ce Pokémon peut
+   * apprendre quand PokéAPI le sait. Une liste de 847 capacités serait
+   * inutilisable ; une liste de 90 est un vrai gain de temps.
+   */
+  function remplirCapacites(datalist, valeur, record) {
+    if (!datalist) return;
+    if (!valeur || valeur.length < 2) { datalist.innerHTML = ''; return; }
+    var table = learnableOf(record);
+    var propositions = PokeStats.movedex.suggest(valeur, { limit: 10, only: table });
+    if (!propositions.length && table) {
+      /* Rien dans son répertoire : on élargit plutôt que de ne rien proposer. */
+      propositions = PokeStats.movedex.suggest(valeur, { limit: 10 });
+    }
+    datalist.innerHTML = propositions.map(function (m) {
+      return '<option value="' + ui.escapeHtml(m.frName) + '"></option>';
+    }).join('');
   }
 
   function renderSuggestionLinks(suggestions, index) {

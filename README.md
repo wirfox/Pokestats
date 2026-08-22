@@ -17,6 +17,7 @@ actuels, et si son évolution justifie de l'entraîner.
 - [Mettre l'app en ligne](#mettre-lapp-en-ligne)
 - [Sources de données](#sources-de-données)
 - [Comment la recommandation est calculée](#comment-la-recommandation-est-calculée)
+- [Faut-il apprendre cette attaque ?](#faut-il-apprendre-cette-attaque-)
 - [Mettre à jour les données](#mettre-à-jour-les-données)
 - [Vérifier les données toi-même](#vérifier-les-données-toi-même)
 - [Tests](#tests)
@@ -319,6 +320,33 @@ Spé.) frappe aussi fort que Flâmigator (117 de puissance, 110 d'Att. Spé.).
 > apprendre**, pas les capacités qu'il porte réellement. Un Carchacrok mal
 > configuré reste un Carchacrok mal configuré.
 
+### Catalogue des capacités
+
+[`data/move-index.js`](data/move-index.js) contient les **847 capacités** que
+peut occuper l'un des quatre emplacements d'attaque, avec leur nom français
+officiel, leur type, leur catégorie, leur puissance, leur précision, leurs PP
+et leur priorité.
+
+| Donnée | Source |
+| --- | --- |
+| Type, catégorie, puissance, précision, PP, priorité | `@pkmn/dex`, **par génération** |
+| Nom français, description française | PokéAPI (`movename`, `moveflavortext`) |
+| Existence de l'identifiant | PokéAPI `/move` — rien n'est retenu sur une supposition |
+
+Les valeurs suivent la génération du jeu choisi, et ce n'est pas un détail :
+Lance-Flammes valait 95 de puissance jusqu'à la 5G et 90 depuis, Morsure était
+de type **Normal** en 1G, et Close Combat n'existe pas avant la 4G. Conseiller
+un échange d'attaques sur les valeurs d'aujourd'hui à un joueur de Rouge Feu
+serait faux. Le fichier stocke la 9G comme référence et, pour chaque
+génération, uniquement les 659 valeurs qui en diffèrent.
+
+Les capacités **Z** et **Gigamax** sont écartées : déclenchées par un objet ou
+un phénomène, elles n'occupent jamais l'un des quatre emplacements.
+
+Seules les capacités de **statut** embarquent leur description française — pour
+une attaque, la puissance et le type disent déjà tout, alors que Danse-Lames ou
+Feu Follet doivent être lues pour être jugées.
+
 ### Formes multiples
 
 Lougaroc n'est pas un Pokémon, c'en est trois : Diurne (115 Att / 112 Vit),
@@ -467,12 +495,71 @@ faible reste un refus.
 
 ---
 
+## Faut-il apprendre cette attaque ?
+
+Le jeu propose une capacité, les quatre emplacements sont pris : laquelle
+sacrifier, et est-ce seulement rentable ? C'est le rôle de
+[`js/moveset.js`](js/moveset.js).
+
+**L'application ne devine jamais les attaques équipées** — elle ne peut pas les
+connaître. C'est toi qui les saisis, dans le bloc « Ses attaques » de chaque
+membre de l'équipe. Tout ce qui suit n'a de valeur que parce qu'il repose sur ce
+que tu as réellement en main.
+
+### Le modèle de comparaison
+
+Les dégâts d'une attaque sont, à peu de chose près, proportionnels au produit
+puissance × statistique offensive × bonus de type. En y ajoutant la précision,
+on obtient une espérance de dégâts :
+
+```
+score = puissance × STAB × (précision / 100) × (statistique / 100)
+```
+
+Ce **n'est pas** un calculateur de dégâts : ni les IV, ni les EV, ni la nature,
+ni l'objet tenu, ni le talent n'y entrent. C'est un ordre de grandeur, suffisant
+pour dire qu'une attaque en écrase clairement une autre, jamais pour départager
+deux attaques proches. C'est exactement pour cela que le seuil de décision est
+large.
+
+### Les six refus
+
+Perdre une capacité est irréversible sans repasser par un Maître des Capacités.
+Le moteur se tait donc dès qu'il n'est pas certain — et se tait explicitement,
+plutôt que de donner un conseil tiède.
+
+| Il refuse de… | Pourquoi |
+| --- | --- |
+| Chiffrer une capacité de **statut** | Danse-Lames, Feu Follet, Ténacité n'ont pas de puissance. Leur valeur dépend d'une stratégie que l'outil ne connaît pas : il les montre, les décrit, et te laisse juger. |
+| Chiffrer une attaque à **puissance variable** | Balayage dépend du poids de la cible, Gyroballe de la vitesse, Retour du bonheur. Leur puissance de base vaut 0 dans les données — les traiter comme telle en ferait la victime automatique de tous les échanges. |
+| Sacrifier une attaque **prioritaire** | Vive-Attaque frappe avant l'adversaire, un atout qui ne se lit pas dans une espérance de dégâts. |
+| Sacrifier la **dernière attaque du type** du Pokémon | Perdre son STAB pour une attaque neutre l'affaiblit sur son terrain le plus solide. |
+| Sacrifier une **couverture unique** | Si l'attaque sortante est la seule à frapper un type en super-efficace et que la nouvelle ne reprend pas cette couverture, l'échange fait perdre plus qu'il ne rapporte. |
+| Trancher pour un **gain faible** | Sous +20 %, l'écart tient dans ce que le modèle ignore. La réponse est « garde tes attaques ». |
+
+### Les verdicts
+
+| Verdict | Quand |
+| --- | --- |
+| **Apprends-la** | Un emplacement est libre : rien à sacrifier, donc aucun risque. |
+| **Échange rentable** | Le gain est net et aucun garde-fou ne s'y oppose. L'attaque sortante est nommée. |
+| **Garde tes attaques** | Au moins un garde-fou s'oppose à l'échange, ou le gain est trop faible. |
+| **À toi de juger** | Une capacité de statut ou à puissance variable est en jeu. L'outil montre les faits et refuse de trancher. |
+| **Déjà apprise** / **Données insuffisantes** | Rien à conseiller. |
+
+Le cas le plus sûr est traité à part : une attaque de **même type et même
+catégorie** en plus fort (Éclair → Tonnerre) ne coûte aucune couverture. Le
+seuil y est abaissé à +5 %, parce que la comparaison y est directe.
+
+---
+
 ## Mettre à jour les données
 
 ```bash
 npm run build:tiers     # table de viabilité, depuis Pokémon Showdown / Smogon
 npm run build:names     # index des noms français, depuis PokéAPI
 npm run build:forms     # formes multiples et leurs libellés français
+npm run build:move-index # catalogue des capacités, par génération
 npm run build:data      # tout
 npm run export:json     # exporte les .js en .json (hors ligne, sans réseau)
 node scripts/build-data.mjs --self-test   # vérifie la logique sans réseau
@@ -506,15 +593,16 @@ En cas d'échec réseau, les scripts n'écrasent rien et expliquent le problème
 Ne me crois pas sur parole — confronte les fichiers à PokéAPI :
 
 ```bash
-npm run verify:data                     # tout (~2100 requêtes, quelques minutes)
+npm run verify:data                     # tout (~2950 requêtes, quelques minutes)
 node scripts/verify-data.mjs --names    # noms français uniquement
 node scripts/verify-data.mjs --tiers    # identifiants uniquement
 node scripts/verify-data.mjs --json     # sortie machine
 ```
 
 Le script signale, entrée par entrée, tout identifiant inconnu de PokéAPI, tout
-nom français divergent du nom officiel, et tout libellé de forme qui ne
-correspond pas à celui que PokéAPI donne. Code de sortie `1` s'il trouve un
+nom français divergent du nom officiel, tout libellé de forme qui ne correspond
+pas à celui que PokéAPI donne, et toute capacité dont le nom ou le type
+divergent. Code de sortie `1` s'il trouve un
 écart, `2` si PokéAPI est injoignable.
 
 > **Derrière un proxy ?** `fetch` de Node ignore `HTTPS_PROXY` par défaut, ce
@@ -529,7 +617,7 @@ correspond pas à celui que PokéAPI donne. Code de sortie `1` s'il trouve un
 
 ### Récapitulatif de fiabilité
 
-Dernier audit : **2088 entrées vérifiées contre PokéAPI, 0 écart.**
+Dernier audit : **2935 entrées vérifiées contre PokéAPI, 0 écart.**
 
 | Donnée | Provenance | Vérifié | Écarts |
 | --- | --- | --- | --- |
@@ -539,6 +627,7 @@ Dernier audit : **2088 entrées vérifiées contre PokéAPI, 0 écart.**
 | Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | 18 types | — |
 | Capacités (841 Pokémon, 174 capacités) | `@pkmn/dex@0.10.11` + PokéAPI | 174 noms FR | **0** |
 | Libellés de formes (222) | PokéAPI `pokemon-form`, langue `fr` | 222 | **0** |
+| Catalogue des capacités (847) | `@pkmn/dex@0.10.11` + PokéAPI, identifiants filtrés sur PokéAPI | 847 noms et types | **0** |
 | Second avis Game8 (98) | Game8, apparié sur PokéAPI | 98 | **0** non résolu |
 | Images des Pokémon | PokéAPI (artwork officiel 475×475) | testé en navigateur | — |
 
@@ -560,7 +649,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-69 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+85 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -595,6 +684,21 @@ Une autre couvre les **formes multiples** :
 - les trois Lougaroc ont bien des statistiques distinctes — c'est la raison
   d'être du sélecteur.
 
+Une dernière couvre l'**échange d'attaques**, où une erreur coûte une capacité
+définitivement perdue :
+
+- une capacité de statut n'est jamais mise en concurrence avec une attaque, et
+  son effet est toujours montré ;
+- une attaque à puissance variable n'est ni chiffrée ni désignée comme sacrifice ;
+- une attaque prioritaire n'est jamais sacrifiée ;
+- la dernière attaque du type du Pokémon n'est pas perdue pour une attaque neutre ;
+- une couverture super-efficace unique n'est jamais perdue en silence ;
+- les valeurs suivent bien la génération (Lance-Flammes à 95 en 1G, Morsure de
+  type Normal, Close Combat inexistant avant la 4G) ;
+- **600 tirages aléatoires** vérifient qu'aucun échange conseillé ne fait
+  baisser l'espérance de dégâts, et qu'aucun ne sacrifie une capacité de statut,
+  prioritaire ou à puissance variable.
+
 S'y ajoutent le cas d'usage du cahier des charges (Rocabot → Lougaroc), les cas
 positifs (l'outil doit aussi savoir dire oui), la détection des rôles, la table
 des types et l'intégrité des données embarquées.
@@ -611,9 +715,11 @@ js/
   api.js                Accès PokéAPI : requêtes, cache, erreurs typées
   names.js              Résolution des noms FR/EN, autocomplétion, suggestions
   forms.js              Formes multiples d'une même espèce
+  movedex.js            Catalogue des capacités, par génération
   types.js              Table d'efficacité des types (construite depuis PokéAPI)
   dex.js                Fiche Pokémon normalisée + chaîne d'évolution
   analysis.js           ★ Moteur de comparaison et de recommandation
+  moveset.js            ★ Moteur d'échange d'attaques
   gamestate.js          Jeu sélectionné et données de sa génération
   gamebar.js            Sélecteur de jeu
   teams.js              Onglets d'équipes, mémorisés dans le navigateur
@@ -626,6 +732,7 @@ data/
   tiers.js / .json      Table de viabilité (tier + confiance)
   names-fr.js / .json   Index de secours des noms français
   forms.js              Formes jouables et leurs libellés français
+  move-index.js         Catalogue des capacités (847), par génération
   type-chart.js         Table des types (repli hors ligne)
   moves.js              Capacités offensives par Pokémon
   games.js              Jeux couverts et leurs pokédex
@@ -659,22 +766,29 @@ logique de décision en Node, sans navigateur.
 2. **IV, EV, natures et objets ne sont pas pris en compte.** L'analyse porte sur
    les stats de base. Un Pokémon bien entraîné peut largement dépasser un membre
    d'équipe mieux classé sur le papier.
-3. **Les capacités sont analysées en potentiel, pas en configuration réelle.**
-   L'outil sait ce qu'un Pokémon *peut* apprendre, pas ce qu'il porte. Il ne
-   connaît pas non plus ton objet tenu ni ta stratégie.
-4. **Le Téracristal n'est pas modélisé.** Il peut changer radicalement le profil
+3. **Le conseil d'équipe raisonne sur le potentiel de capacités, pas sur ton
+   set réel.** Pour comparer deux Pokémon, l'outil regarde ce qu'ils *peuvent*
+   apprendre. Les attaques que tu saisis servent au conseil d'échange
+   d'attaques, pas à l'analyse d'équipe.
+4. **L'échange d'attaques repose sur une espérance de dégâts, pas sur un calcul
+   exact.** Ni les IV, ni les EV, ni la nature, ni l'objet tenu, ni le talent
+   n'entrent dans le score — c'est pourquoi le moteur ne tranche qu'au-delà de
+   +20 % d'écart, et se tait le reste du temps. Les effets secondaires (brûlure,
+   recul, soin, changement de stats) ne sont pas modélisés non plus : une
+   attaque n'est jugée que sur les dégâts qu'elle inflige.
+5. **Le Téracristal n'est pas modélisé.** Il peut changer radicalement le profil
    défensif d'un Pokémon, donc l'analyse de types.
-5. **Les tiers reflètent le compétitif, pas l'aventure solo.** Pour finir
+6. **Les tiers reflètent le compétitif, pas l'aventure solo.** Pour finir
    l'histoire d'Écarlate / Violet, un Pokémon tier C fait parfaitement l'affaire.
    Un tier bas n'est pas un verdict sur ton plaisir de jeu.
-6. **L'analyse de types est purement défensive.** La couverture offensive
+7. **L'analyse de types est purement défensive.** La couverture offensive
    (quels types ton équipe peut frapper) n'est pas évaluée, faute d'analyser les
    capacités.
-7. **Aucune synergie d'équipe fine.** Météo, terrains, redirection, relais de
+8. **Aucune synergie d'équipe fine.** Météo, terrains, redirection, relais de
    stats : rien de tout cela n'est modélisé.
-8. **Une connexion Internet est requise.** Sans PokéAPI, l'outil refuse
+9. **Une connexion Internet est requise.** Sans PokéAPI, l'outil refuse
    d'analyser plutôt que de deviner.
-9. **Les tiers évoluent avec le métagame.** `@pkmn/dex` est épinglé à une
+10. **Les tiers évoluent avec le métagame.** `@pkmn/dex` est épinglé à une
    version : relance `npm run build:tiers` après un `npm update` pour suivre
    les reclassements de Smogon.
 

@@ -247,6 +247,147 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Attaques équipées et échange d'attaque                              */
+  /* ------------------------------------------------------------------ */
+
+  var CATEGORIE_FR = { phy: 'physique', spe: 'spéciale', sta: 'statut' };
+
+  /** Une capacité équipée, avec ses vraies valeurs pour le jeu choisi. */
+  function moveRowHtml(described, opts) {
+    var o = opts || {};
+    var m = described.move;
+    /* Une capacité de statut n'a ni puissance ni bonus de type : afficher
+     * « 0 de puissance » ou « STAB » sur Cage-Éclair serait un contresens. */
+    var chiffres = [];
+    if (!m.isStatus) {
+      chiffres.push(described.variable ? 'puissance variable' : m.power + ' de puissance');
+    }
+    chiffres.push(CATEGORIE_FR[m.category] || m.category);
+    if (m.accuracy < 100) chiffres.push(m.accuracy + ' % de précision');
+    chiffres.push(m.pp + ' PP');
+
+    return '' +
+      '<li class="move-row' + (o.highlight ? ' is-out' : '') + '">' +
+        '<span class="move-row-name">' +
+          '<span class="type-chip type-' + escapeHtml(m.type) + '">' +
+            typeIcon(m.type) + escapeHtml(types.frType(m.type)) + '</span>' +
+          escapeHtml(m.frName) +
+          (described.stab && !m.isStatus
+            ? '<span class="move-stab" title="Attaque du type du Pokémon : dégâts augmentés de 50 %.">STAB</span>'
+            : '') +
+          (m.priority > 0 ? '<span class="move-flag" title="Frappe avant l’adversaire.">priorité</span>' : '') +
+        '</span>' +
+        '<span class="move-row-stats">' + escapeHtml(chiffres.join(' · ')) + '</span>' +
+        (o.removable
+          ? '<button type="button" class="move-remove" data-move="' + escapeHtml(described.slug) +
+            '" title="Retirer cette attaque" aria-label="Retirer ' + escapeHtml(m.frName) + '">×</button>'
+          : '') +
+      '</li>';
+  }
+
+  /**
+   * Bloc « attaques » d'un membre de l'équipe.
+   *
+   * L'application ne devine JAMAIS les quatre attaques équipées : elle ne peut
+   * pas les connaître. C'est le joueur qui les saisit, et tout ce qui suit —
+   * l'échange conseillé — n'a de valeur que parce qu'il repose sur ce qu'il a
+   * réellement en main.
+   *
+   * @param {Object} record
+   * @param {string[]} slugs capacités saisies
+   * @param {{index: number, open?: boolean}} opts
+   */
+  function movesetHtml(record, slugs, opts) {
+    var o = opts || {};
+    var moveset = PokeStats.moveset;
+    if (!moveset) return '';
+
+    var set = moveset.describeSet(record, slugs);
+    var libres = moveset.MAX_MOVES - set.moves.length;
+    var id = 'moveset-' + o.index;
+
+    var lignes = set.moves.map(function (d) {
+      return moveRowHtml(d, { removable: true });
+    }).join('');
+
+    var oublies = set.unknown.length
+      ? '<p class="moveset-warn">Capacité' + (set.unknown.length > 1 ? 's' : '') +
+        ' non reconnue' + (set.unknown.length > 1 ? 's' : '') + ' pour ce jeu&nbsp;: ' +
+        escapeHtml(set.unknown.join(', ')) + '.</p>'
+      : '';
+
+    return '' +
+      '<div class="moveset" data-index="' + o.index + '">' +
+        '<button type="button" class="moveset-toggle" aria-expanded="' + (o.open ? 'true' : 'false') +
+          '" aria-controls="' + id + '">' +
+          '<span class="moveset-toggle-label">Ses attaques</span>' +
+          '<span class="moveset-count">' + set.moves.length + '/' + moveset.MAX_MOVES + '</span>' +
+          '<span class="moveset-chevron" aria-hidden="true">▾</span>' +
+        '</button>' +
+        '<div class="moveset-body" id="' + id + '"' + (o.open ? '' : ' hidden') + '>' +
+          (lignes
+            ? '<ol class="move-list-rows">' + lignes + '</ol>'
+            : '<p class="moveset-empty">Saisis les attaques que ce Pokémon connaît. ' +
+              'Sans elles, l’outil ne peut rien dire d’un échange d’attaque.</p>') +
+          oublies +
+          (libres > 0
+            ? '<div class="moveset-add">' +
+                '<label class="visually-hidden" for="' + id + '-add">Ajouter une attaque</label>' +
+                '<input type="text" class="text-input moveset-input" id="' + id + '-add" ' +
+                  'placeholder="Ajouter une attaque" autocomplete="off" ' +
+                  'list="' + id + '-list">' +
+                '<datalist id="' + id + '-list"></datalist>' +
+              '</div>'
+            : '') +
+          '<div class="moveset-new">' +
+            '<label class="moveset-new-label" for="' + id + '-new">' +
+              'Le jeu te propose une nouvelle attaque&nbsp;?</label>' +
+            '<div class="moveset-new-row">' +
+              '<input type="text" class="text-input moveset-candidate" id="' + id + '-new" ' +
+                'placeholder="Nom de l’attaque proposée" autocomplete="off" ' +
+                'list="' + id + '-newlist">' +
+              '<datalist id="' + id + '-newlist"></datalist>' +
+              '<button type="button" class="btn moveset-ask">Faut-il l’apprendre&nbsp;?</button>' +
+            '</div>' +
+            '<div class="moveset-advice" hidden></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /**
+   * Verdict d'un échange d'attaque.
+   *
+   * Le ton du bandeau suit le verdict, et « à toi de juger » n'est pas un
+   * demi-oui : c'est un refus assumé de trancher, affiché comme tel.
+   */
+  function moveAdviceHtml(record, verdict, note) {
+    var m = verdict.candidate;
+    var entete = m
+      ? '<div class="advice-move">' + moveRowHtml(m, {}) + '</div>'
+      : '';
+
+    var sortante = verdict.drop
+      ? '<p class="advice-drop">À la place de <strong>' +
+        escapeHtml(verdict.drop.move.frName) + '</strong>.</p>' +
+        '<ol class="move-list-rows">' + moveRowHtml(verdict.drop, { highlight: true }) + '</ol>'
+      : '';
+
+    return '' +
+      '<div class="advice advice-' + escapeHtml(verdict.ton) + '">' +
+        '<p class="advice-verdict">' + escapeHtml(verdict.label) + '</p>' +
+        (entete ? '<ol class="move-list-rows advice-candidate">' + entete + '</ol>' : '') +
+        sortante +
+        '<ul class="advice-reasons">' +
+          verdict.reasons.map(function (r) {
+            return '<li>' + escapeHtml(r.text) + '</li>';
+          }).join('') +
+        '</ul>' +
+        (note ? '<p class="advice-note">' + escapeHtml(note) + '</p>' : '') +
+      '</div>';
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Choix de la forme                                                   */
   /* ------------------------------------------------------------------ */
 
@@ -916,6 +1057,8 @@
   PokeStats.ui = {
     escapeHtml: escapeHtml,
     monCard: monCard,
+    movesetHtml: movesetHtml,
+    moveAdviceHtml: moveAdviceHtml,
     formPickerHtml: formPickerHtml,
     wireFormPicker: wireFormPicker,
     statsHtml: statsHtml,

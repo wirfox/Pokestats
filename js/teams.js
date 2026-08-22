@@ -7,11 +7,20 @@
  * équipe est donc rattachée à un jeu, et changer de jeu n'efface rien.
  *
  * Modèle d'une équipe :
- *   { id, name, gameId, slots: [ "Rocabot", "", ... ] }   (6 emplacements)
+ *   {
+ *     id, name, gameId,
+ *     slots:    [ "Rocabot", "", ... ],                    (6 emplacements)
+ *     movesets: [ ["thunderbolt", "quick-attack"], [], … ] (6 × 0 à 4 capacités)
+ *   }
  *
  * Les emplacements ne stockent que ce que l'utilisateur a tapé, pas les fiches
  * complètes : c'est compact, et cela reste valable si les données de PokéAPI
- * évoluent.
+ * évoluent. Les attaques, elles, sont stockées par IDENTIFIANT : c'est ce que
+ * le catalogue comprend, et cela survit à un changement de langue d'affichage.
+ *
+ * `movesets` est ajouté sans toucher à `slots` : une équipe enregistrée par une
+ * version antérieure du site se recharge telle quelle, simplement sans
+ * attaques.
  */
 (function (root) {
   'use strict';
@@ -22,6 +31,7 @@
   var LEGACY_KEY = 'pokestats:v1:team';   // équipe unique des versions précédentes
   var TEAM_SIZE = 6;
   var MAX_TEAMS = 12;                     // au-delà, la barre d'onglets devient illisible
+  var MAX_MOVES = 4;                      // règle du jeu : quatre capacités, pas plus
 
   var state = { teams: [], activeId: null };
 
@@ -33,6 +43,29 @@
     var slots = [];
     for (var i = 0; i < TEAM_SIZE; i++) slots.push('');
     return slots;
+  }
+
+  function emptyMovesets() {
+    var sets = [];
+    for (var i = 0; i < TEAM_SIZE; i++) sets.push([]);
+    return sets;
+  }
+
+  /**
+   * Complète une équipe venue du stockage. Les versions antérieures du site
+   * n'enregistraient pas les attaques : leur absence ne doit jamais faire
+   * planter le chargement d'une équipe existante.
+   */
+  function normalize(team) {
+    if (!team) return team;
+    if (!Array.isArray(team.movesets)) team.movesets = emptyMovesets();
+    while (team.movesets.length < TEAM_SIZE) team.movesets.push([]);
+    team.movesets = team.movesets.slice(0, TEAM_SIZE).map(function (list) {
+      return Array.isArray(list)
+        ? list.filter(function (m) { return typeof m === 'string' && m; }).slice(0, MAX_MOVES)
+        : [];
+    });
+    return team;
   }
 
   /* ------------------------------------------------------------------ */
@@ -70,12 +103,12 @@
       if (!raw) return null;
       var slots = JSON.parse(raw);
       if (!Array.isArray(slots) || !slots.some(function (s) { return s; })) return null;
-      return {
+      return normalize({
         id: uid(),
         name: 'Mon équipe',
         gameId: gameId,
         slots: slots.slice(0, TEAM_SIZE).concat(emptySlots()).slice(0, TEAM_SIZE)
-      };
+      });
     } catch (e) {
       return null;
     }
@@ -89,12 +122,13 @@
   function init(gameId) {
     var stored = read();
     if (stored && stored.teams.length) {
+      stored.teams.forEach(normalize);
       state = stored;
     } else {
       var legacy = importLegacy(gameId);
-      var first = legacy || {
+      var first = legacy || normalize({
         id: uid(), name: 'Mon équipe', gameId: gameId, slots: emptySlots()
-      };
+      });
       state = { teams: [first], activeId: first.id };
       write();
     }
@@ -128,12 +162,12 @@
    */
   function create(gameId, name) {
     if (state.teams.length >= MAX_TEAMS) return active();
-    var team = {
+    var team = normalize({
       id: uid(),
       name: name || nextName(gameId),
       gameId: gameId,
       slots: emptySlots()
-    };
+    });
     state.teams.push(team);
     state.activeId = team.id;
     write();
@@ -160,6 +194,7 @@
     if (!team) return active();
     if (state.teams.length === 1) {
       team.slots = emptySlots();
+      team.movesets = emptyMovesets();
       write();
       return team;
     }
@@ -169,12 +204,68 @@
     return active();
   }
 
-  /** Enregistre le contenu d'un emplacement de l'équipe active. */
+  /**
+   * Enregistre le contenu d'un emplacement de l'équipe active.
+   *
+   * Changer de Pokémon vide ses attaques : celles de l'ancien occupant n'ont
+   * aucune raison d'être apprises par le nouveau, et les conserver ferait
+   * analyser un jeu d'attaques que le joueur n'a jamais saisi. Choisir une
+   * autre FORME du même Pokémon les conserve, elle.
+   */
   function setSlot(index, value) {
     var team = active();
     if (!team || index < 0 || index >= TEAM_SIZE) return;
-    team.slots[index] = String(value || '');
+    var suivant = String(value || '');
+    if (team.slots[index] !== suivant && !memeEspece(team.slots[index], suivant)) {
+      team.movesets[index] = [];
+    }
+    team.slots[index] = suivant;
     write();
+  }
+
+  /** Deux saisies désignent-elles le même Pokémon (forme mise à part) ? */
+  function memeEspece(avant, apres) {
+    var names = PokeStats.names;
+    var forms = PokeStats.forms;
+    if (!avant || !apres || !names) return false;
+    var a = names.toCandidateSlug(avant).slug;
+    var b = names.toCandidateSlug(apres).slug;
+    if (a === b) return true;
+    if (!forms) return false;
+    var ea = forms.speciesOf(a);
+    var eb = forms.speciesOf(b);
+    return !!ea && ea === eb;
+  }
+
+  /** Attaques enregistrées pour un emplacement. */
+  function movesOf(index) {
+    var team = active();
+    if (!team || index < 0 || index >= TEAM_SIZE) return [];
+    return team.movesets[index].slice();
+  }
+
+  /** Remplace les attaques d'un emplacement (4 au maximum, sans doublon). */
+  function setMoves(index, list) {
+    var team = active();
+    if (!team || index < 0 || index >= TEAM_SIZE) return [];
+    var vus = Object.create(null);
+    team.movesets[index] = (list || [])
+      .filter(function (m) {
+        if (typeof m !== 'string' || !m || vus[m]) return false;
+        vus[m] = true;
+        return true;
+      })
+      .slice(0, MAX_MOVES);
+    write();
+    return team.movesets[index].slice();
+  }
+
+  function addMove(index, slug) {
+    return setMoves(index, movesOf(index).concat([slug]));
+  }
+
+  function removeMove(index, slug) {
+    return setMoves(index, movesOf(index).filter(function (m) { return m !== slug; }));
   }
 
   function slots() {
@@ -186,6 +277,7 @@
     var team = active();
     if (!team) return;
     team.slots = emptySlots();
+    team.movesets = emptyMovesets();
     write();
   }
 
@@ -212,6 +304,11 @@
     remove: remove,
     setSlot: setSlot,
     slots: slots,
+    MAX_MOVES: MAX_MOVES,
+    movesOf: movesOf,
+    setMoves: setMoves,
+    addMove: addMove,
+    removeMove: removeMove,
     clearSlots: clearSlots,
     setGame: setGame
   };

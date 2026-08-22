@@ -1294,6 +1294,236 @@ test('aucune forme de transformation ne subsiste hors de sa génération', funct
   });
 });
 
+/* ================================================================== */
+section('10. Échange d’attaques — ce que le moteur refuse de chiffrer');
+/* ================================================================== */
+
+/*
+ * POURQUOI CES TESTS
+ * ------------------
+ * Conseiller un échange d'attaques, c'est demander au joueur de PERDRE
+ * définitivement une capacité. Une erreur ici ne se rattrape pas d'un clic :
+ * il faut retrouver un Maître des Capacités. Le moteur doit donc se taire dès
+ * qu'il n'est pas certain — et se taire explicitement, pas en donnant un
+ * conseil tiède.
+ */
+
+function chargerAttaques() {
+  require(path.join(__dirname, '..', 'data', 'move-index.js'));
+  require(path.join(__dirname, '..', 'js', 'movedex.js'));
+  require(path.join(__dirname, '..', 'js', 'moveset.js'));
+  return globalThis.PokeStats.moveset;
+}
+
+/** Pokémon minimal pour le moteur d'attaques : types et stats offensives. */
+function combattant(nom, types, stats) {
+  return {
+    frName: nom,
+    types: types,
+    stats: {
+      hp: stats[0], attack: stats[1], defense: stats[2],
+      'special-attack': stats[3], 'special-defense': stats[4], speed: stats[5]
+    }
+  };
+}
+
+var CARCHACROK = combattant('Carchacrok', ['dragon', 'ground'], [108, 130, 95, 80, 85, 102]);
+var PIKACHU    = combattant('Pikachu', ['electric'], [35, 55, 40, 50, 50, 90]);
+var SET_CARCHA = ['dragon-claw', 'earthquake', 'crunch', 'fire-fang'];
+
+test('un emplacement libre suffit : aucune attaque n’est sacrifiée', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(CARCHACROK, ['dragon-claw', 'crunch'], 'earthquake');
+  assert.strictEqual(v.code, 'apprends');
+  assert.strictEqual(v.drop, null, 'rien ne doit être sacrifié quand il reste de la place');
+});
+
+test('une attaque nettement plus forte du même type remplace la plus faible', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(PIKACHU,
+    ['thunder-shock', 'quick-attack', 'tail-whip', 'growl'], 'thunderbolt');
+  assert.strictEqual(v.code, 'remplace');
+  assert.strictEqual(v.drop.slug, 'thunder-shock',
+    'c’est Éclair, même type et plus faible, qui doit sauter');
+});
+
+test('une capacité de statut n’est jamais mise en concurrence avec une attaque', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(CARCHACROK, SET_CARCHA, 'swords-dance');
+  assert.strictEqual(v.code, 'a-toi-de-voir');
+  assert.strictEqual(v.drop, null);
+  /* Refuser de trancher n'autorise pas à se taire : le joueur doit repartir
+   * avec de quoi décider lui-même. */
+  assert.ok(v.reasons.some(function (r) { return r.code === 'effet'; }),
+    'l’effet de la capacité doit être montré');
+});
+
+test('une attaque à puissance variable n’est jamais chiffrée', function () {
+  var moveset = chargerAttaques();
+  /* Balayage dépend du poids de la cible : sa puissance de base vaut 0 dans
+   * les données. La traiter comme une puissance réelle la ferait passer pour
+   * l’attaque la plus faible du jeu. */
+  var v = moveset.evaluate(CARCHACROK, SET_CARCHA, 'low-kick');
+  assert.strictEqual(v.code, 'a-toi-de-voir');
+  assert.ok(v.reasons.some(function (r) { return r.code === 'puissance-variable'; }));
+});
+
+test('une attaque à puissance variable n’est jamais désignée comme sacrifice', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(CARCHACROK,
+    ['low-kick', 'dragon-claw', 'crunch', 'fire-fang'], 'earthquake');
+  if (v.drop) {
+    assert.notStrictEqual(v.drop.slug, 'low-kick',
+      'Balayage n’est pas « faible », il est non mesurable');
+  }
+});
+
+test('une attaque prioritaire n’est jamais désignée comme sacrifice', function () {
+  var moveset = chargerAttaques();
+  /* Vive-Attaque frappe avant l’adversaire. Son score est bas, mais sa valeur
+   * ne se lit pas dans une espérance de dégâts. */
+  var v = moveset.evaluate(CARCHACROK,
+    ['quick-attack', 'dragon-claw', 'earthquake', 'crunch'], 'iron-head');
+  if (v.drop) {
+    assert.notStrictEqual(v.drop.slug, 'quick-attack');
+  }
+});
+
+test('la dernière attaque du type du Pokémon n’est pas sacrifiée pour une attaque neutre', function () {
+  var moveset = chargerAttaques();
+  var faible = combattant('Cobaye', ['fire'], [80, 120, 80, 60, 80, 80]);
+  /* Une seule attaque Feu, trois attaques neutres plus faibles qu'elle en
+   * apparence : le moteur ne doit pas conseiller de perdre le STAB. */
+  var v = moveset.evaluate(faible, ['ember', 'pound', 'scratch', 'tackle'], 'strength');
+  if (v.code === 'remplace') {
+    assert.notStrictEqual(v.drop.slug, 'ember',
+      'perdre sa dernière attaque de son type n’est jamais conseillé');
+  }
+});
+
+test('une couverture super-efficace unique n’est jamais perdue en silence', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(CARCHACROK, SET_CARCHA, 'draco-meteor');
+  assert.strictEqual(v.code, 'garde');
+  assert.ok(v.reasons.some(function (r) { return r.code === 'couverture-perdue'; }),
+    'le motif doit nommer la couverture qui serait perdue');
+});
+
+test('un gain trop faible ne déclenche aucun échange', function () {
+  var moveset = chargerAttaques();
+  /* Deux attaques Sol physiques quasi identiques : l’écart tient dans ce que
+   * le modèle ignore (IV, EV, nature, objet). */
+  var v = moveset.evaluate(CARCHACROK,
+    ['earthquake', 'dragon-claw', 'crunch', 'fire-fang'], 'high-horsepower');
+  assert.notStrictEqual(v.code, 'remplace');
+});
+
+test('une capacité déjà connue est signalée, pas réanalysée', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(CARCHACROK, SET_CARCHA, 'earthquake');
+  assert.strictEqual(v.code, 'deja-connue');
+  assert.strictEqual(v.drop, null);
+});
+
+test('une capacité inconnue ne produit jamais de conseil', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(CARCHACROK, SET_CARCHA, 'capacite-qui-nexiste-pas');
+  assert.strictEqual(v.code, 'donnee-manquante');
+  assert.strictEqual(v.drop, null);
+});
+
+test('propriété : aucun échange conseillé ne fait baisser l’espérance de dégâts', function () {
+  var moveset = chargerAttaques();
+  var movedex = globalThis.PokeStats.movedex;
+
+  var attaques = ['earthquake', 'dragon-claw', 'crunch', 'fire-fang', 'thunderbolt',
+    'ice-beam', 'flamethrower', 'stone-edge', 'iron-head', 'outrage', 'surf',
+    'psychic', 'shadow-ball', 'thunder-shock', 'ember', 'tackle', 'quick-attack',
+    'swords-dance', 'low-kick', 'protect', 'bulldoze', 'metal-claw'];
+
+  var combattants = [CARCHACROK, PIKACHU,
+    combattant('Spécialiste', ['water'], [90, 60, 80, 135, 90, 80]),
+    combattant('Bourrin', ['fighting'], [100, 140, 70, 40, 70, 60])];
+
+  var graine = 20260822;
+  function alea(n) {
+    graine = (graine * 1103515245 + 12345) % 2147483648;
+    return graine % n;
+  }
+
+  var verifs = 0;
+  for (var essai = 0; essai < 600; essai++) {
+    var mon = combattants[alea(combattants.length)];
+    var set = [];
+    while (set.length < 4) {
+      var pick = attaques[alea(attaques.length)];
+      if (set.indexOf(pick) === -1) set.push(pick);
+    }
+    var candidat = attaques[alea(attaques.length)];
+    var v = moveset.evaluate(mon, set, candidat);
+    if (v.code !== 'remplace') continue;
+
+    verifs += 1;
+    var avant = moveset.scoreOf(mon, movedex.get(v.drop.slug));
+    var apres = moveset.scoreOf(mon, movedex.get(candidat));
+
+    assert.ok(avant !== null && apres !== null,
+      'un échange conseillé porte toujours sur deux attaques mesurables');
+    assert.ok(apres > avant,
+      'échange conseillé à la baisse : ' + candidat + ' (' + Math.round(apres) +
+      ') pour ' + v.drop.slug + ' (' + Math.round(avant) + ') sur ' + mon.frName);
+    assert.ok(!v.drop.move.isStatus, 'une capacité de statut ne se sacrifie jamais');
+    assert.ok(v.drop.move.priority <= 0, 'une attaque prioritaire ne se sacrifie jamais');
+    assert.strictEqual(v.drop.variable, false, 'une puissance variable ne se sacrifie jamais');
+  }
+
+  assert.ok(verifs >= 30, 'trop peu d’échanges conseillés pour conclure (' + verifs + ')');
+});
+
+test('data/move-index.js déclare une provenance vérifiable', function () {
+  var meta = globalThis.POKESTATS_MOVE_INDEX.meta;
+  assert.ok(/^vérifié/.test(meta.provenance), 'provenance : ' + meta.provenance);
+  assert.ok(/@pkmn\/dex@\d+\.\d+\.\d+/.test(meta.source), 'source : ' + meta.source);
+});
+
+test('les valeurs des capacités suivent la génération choisie', function () {
+  chargerAttaques();
+  var movedex = globalThis.PokeStats.movedex;
+
+  /* Lance-Flammes : 95 de puissance jusqu’à la 5G, 90 depuis. */
+  assert.strictEqual(movedex.get('flamethrower', 1).power, 95);
+  assert.strictEqual(movedex.get('flamethrower', 9).power, 90);
+
+  /* Morsure était de type Normal avant la 2G. */
+  assert.strictEqual(movedex.get('bite', 1).type, 'normal');
+  assert.strictEqual(movedex.get('bite', 9).type, 'dark');
+
+  /* Close Combat n’existe pas avant la 4G : mieux vaut rien qu’une valeur. */
+  assert.strictEqual(movedex.get('close-combat', 1), null);
+  assert.ok(movedex.get('close-combat', 4));
+});
+
+test('chaque capacité du catalogue a un nom français et un identifiant bien formé', function () {
+  var index = globalThis.POKESTATS_MOVE_INDEX;
+  var mauvais = [];
+  Object.keys(index.moves).forEach(function (slug) {
+    if (!/^[a-z0-9,-]+$/.test(slug)) mauvais.push(slug);
+    var nom = index.moves[slug][0];
+    if (!nom || typeof nom !== 'string') mauvais.push(slug + ' (sans nom)');
+  });
+  assert.deepStrictEqual(mauvais, [], mauvais.slice(0, 6).join(', '));
+});
+
+test('aucune capacité Z ni Gigamax dans le catalogue', function () {
+  var index = globalThis.POKESTATS_MOVE_INDEX;
+  /* Elles sont déclenchées par un objet ou un phénomène : elles n’occupent
+   * jamais l’un des quatre emplacements d’attaque. */
+  var interdites = Object.keys(index.moves).filter(function (slug) {
+    return /^g-max-/.test(slug) || slug === 'breakneck-blitz' || slug === 'hydro-vortex';
+  });
+  assert.deepStrictEqual(interdites, []);
+});
+
 /* ------------------------------------------------------------------ */
 
 console.log('\n' + '-'.repeat(60));
