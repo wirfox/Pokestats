@@ -1524,6 +1524,95 @@ test('aucune capacité Z ni Gigamax dans le catalogue', function () {
   assert.deepStrictEqual(interdites, []);
 });
 
+/* ================================================================== */
+section('11. Persistance — la forme choisie ne se redevine pas');
+/* ================================================================== */
+
+/*
+ * POURQUOI CES TESTS
+ * ------------------
+ * La forme d'un Pokémon était enregistrée sous la forme d'un LIBELLÉ français
+ * (« Lougaroc Forme Crépusculaire »), réinterprété à chaque chargement. Il
+ * suffisait que cette interprétation échoue — libellé modifié, fichier périmé
+ * servi par le cache du navigateur, index des noms chargé à contretemps — pour
+ * que le joueur retrouve un Lougaroc Diurne à la place de son Crépusculaire.
+ *
+ * L'identifiant est désormais enregistré à côté du libellé. Ces tests
+ * vérifient qu'il l'est bien, qu'il survit à une équipe héritée d'une version
+ * antérieure, et qu'il prime sur le texte.
+ */
+
+function chargerEquipes() {
+  /* Stockage de substitution : Node n'a pas de localStorage, et les tests ne
+   * doivent de toute façon rien laisser derrière eux. */
+  var memoire = Object.create(null);
+  globalThis.localStorage = {
+    getItem: function (k) { return k in memoire ? memoire[k] : null; },
+    setItem: function (k, v) { memoire[k] = String(v); },
+    removeItem: function (k) { delete memoire[k]; }
+  };
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'js', 'teams.js'))];
+  require(path.join(__dirname, '..', 'data', 'forms.js'));
+  require(path.join(__dirname, '..', 'data', 'names-fr.js'));
+  require(path.join(__dirname, '..', 'js', 'forms.js'));
+  require(path.join(__dirname, '..', 'js', 'teams.js'));
+  return { teams: globalThis.PokeStats.teams, memoire: memoire };
+}
+
+test('l’identifiant d’un emplacement est enregistré à côté de la saisie', function () {
+  var ctx = chargerEquipes();
+  ctx.teams.init('scarlet-violet');
+  ctx.teams.setSlot(0, 'Lougaroc Forme Crépusculaire', 'lycanroc-dusk');
+
+  assert.strictEqual(ctx.teams.slots()[0], 'Lougaroc Forme Crépusculaire');
+  assert.strictEqual(ctx.teams.slugOf(0), 'lycanroc-dusk',
+    'sans identifiant enregistré, la forme doit être redevinée à chaque visite');
+
+  var stocke = JSON.parse(ctx.memoire['pokestats:v2:teams']);
+  assert.strictEqual(stocke.teams[0].slugs[0], 'lycanroc-dusk',
+    'l’identifiant doit survivre au passage par le stockage');
+});
+
+test('une équipe enregistrée sans identifiants se recharge sans erreur', function () {
+  var ctx = chargerEquipes();
+  ctx.memoire['pokestats:v2:teams'] = JSON.stringify({
+    activeId: 'a',
+    teams: [{ id: 'a', name: 'Ancienne', gameId: 'scarlet-violet',
+              slots: ['Carchacrok', '', '', '', '', ''] }]
+  });
+  ctx.teams.init('scarlet-violet');
+
+  assert.strictEqual(ctx.teams.slots()[0], 'Carchacrok');
+  assert.deepStrictEqual(ctx.teams.slugs(), ['', '', '', '', '', ''],
+    'aucun identifiant inventé pour une équipe qui n’en avait pas');
+  assert.deepStrictEqual(ctx.teams.movesOf(0), []);
+});
+
+test('vider un emplacement efface aussi son identifiant', function () {
+  var ctx = chargerEquipes();
+  ctx.teams.init('scarlet-violet');
+  ctx.teams.setSlot(0, 'Lougaroc Forme Nocturne', 'lycanroc-midnight');
+  ctx.teams.setSlot(0, '');
+  assert.strictEqual(ctx.teams.slugOf(0), '');
+});
+
+test('changer de forme conserve les attaques, changer de Pokémon les efface', function () {
+  var ctx = chargerEquipes();
+  ctx.teams.init('scarlet-violet');
+
+  ctx.teams.setSlot(0, 'Lougaroc Forme Diurne', 'lycanroc');
+  ctx.teams.setMoves(0, ['stone-edge', 'crunch']);
+
+  /* Même Pokémon, autre forme : les attaques restent pertinentes. */
+  ctx.teams.setSlot(0, 'Lougaroc Forme Crépusculaire', 'lycanroc-dusk');
+  assert.deepStrictEqual(ctx.teams.movesOf(0), ['stone-edge', 'crunch']);
+
+  /* Autre Pokémon : rien ne dit qu’il connaît ces attaques. */
+  ctx.teams.setSlot(0, 'Carchacrok', 'garchomp');
+  assert.deepStrictEqual(ctx.teams.movesOf(0), [],
+    'les attaques de l’ancien occupant ne doivent pas être attribuées au nouveau');
+});
+
 /* ------------------------------------------------------------------ */
 
 console.log('\n' + '-'.repeat(60));

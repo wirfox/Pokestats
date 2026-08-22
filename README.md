@@ -376,6 +376,15 @@ Choisir une forme change l'identifiant analysé : statistiques, types, tier,
 capacités et rôle sont alors ceux de cette forme précise, et les conseils la
 nomment (« Lougaroc Forme Crépusculaire », pas « Lougaroc »).
 
+Ce choix est enregistré **par identifiant**, pas par libellé. Chaque
+emplacement d'équipe conserve à la fois ce que tu as tapé (`slots`) et
+l'identifiant auquel cette saisie a réellement abouti (`slugs`). Ce n'est pas
+une redondance : sans le second, la forme devrait être redevinée à chaque
+chargement en réanalysant un texte français, et il suffirait qu'un libellé
+change, qu'un fichier arrive périmé du cache du navigateur ou que l'index des
+noms se charge à contretemps pour que le Crépusculaire redevienne Diurne.
+Un identifiant, lui, ne se réinterprète pas.
+
 ### Table d'efficacité des types
 
 Construite en priorité depuis PokéAPI (`/type/{nom}` → `damage_relations`).
@@ -649,7 +658,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-85 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+89 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -698,6 +707,11 @@ définitivement perdue :
 - **600 tirages aléatoires** vérifient qu'aucun échange conseillé ne fait
   baisser l'espérance de dégâts, et qu'aucun ne sacrifie une capacité de statut,
   prioritaire ou à puissance variable.
+
+Une section courte protège la **persistance** : l'identifiant d'un emplacement
+est bien enregistré à côté de la saisie, une équipe créée par une version
+antérieure se recharge sans identifiant inventé, et changer de forme conserve
+les attaques quand changer de Pokémon les efface.
 
 S'y ajoutent le cas d'usage du cahier des charges (Rocabot → Lougaroc), les cas
 positifs (l'outil doit aussi savoir dire oui), la détection des rôles, la table

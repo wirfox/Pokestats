@@ -345,9 +345,12 @@
     if (!equipe) return { membres: [], nom: null };
 
     var membres = [];
-    equipe.slots.forEach(function (saisie) {
+    equipe.slots.forEach(function (saisie, position) {
       if (!saisie) return;
-      var slug = names.toCandidateSlug(saisie).slug;
+      /* L'identifiant enregistré prime sur le texte : c'est lui qui porte la
+       * forme exacte choisie par le joueur, et il n'a pas à être réinterprété. */
+      var slug = (equipe.slugs && equipe.slugs[position]) || '';
+      if (!slug || !data.species[slug]) slug = names.toCandidateSlug(saisie).slug;
       var s = data.species[slug];
       if (!s) return;   // Pokémon absent de ce jeu : on ne peut rien en dire
       membres.push({

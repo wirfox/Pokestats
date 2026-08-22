@@ -10,17 +10,23 @@
  *   {
  *     id, name, gameId,
  *     slots:    [ "Rocabot", "", ... ],                    (6 emplacements)
+ *     slugs:    [ "rockruff", "", ... ],                    (identifiant résolu)
  *     movesets: [ ["thunderbolt", "quick-attack"], [], … ] (6 × 0 à 4 capacités)
  *   }
  *
- * Les emplacements ne stockent que ce que l'utilisateur a tapé, pas les fiches
- * complètes : c'est compact, et cela reste valable si les données de PokéAPI
- * évoluent. Les attaques, elles, sont stockées par IDENTIFIANT : c'est ce que
- * le catalogue comprend, et cela survit à un changement de langue d'affichage.
+ * `slots` garde ce que l'utilisateur a tapé — c'est ce qu'il relit dans le
+ * champ. `slugs` garde l'identifiant auquel cette saisie a RÉELLEMENT abouti.
  *
- * `movesets` est ajouté sans toucher à `slots` : une équipe enregistrée par une
- * version antérieure du site se recharge telle quelle, simplement sans
- * attaques.
+ * Les deux sont nécessaires, et le second n'est pas une redondance : sans lui,
+ * la forme choisie doit être redevinée à chaque chargement en réanalysant un
+ * libellé français (« Lougaroc Forme Crépusculaire »). Il suffit alors qu'un
+ * libellé change, qu'un fichier arrive périmé du cache du navigateur ou que
+ * l'index des noms se charge à contretemps pour que la saisie retombe sur
+ * l'espèce de base — et le joueur retrouve un Lougaroc Diurne à la place du
+ * Crépusculaire qu'il avait choisi. L'identifiant, lui, ne se réinterprète pas.
+ *
+ * `slugs` et `movesets` sont ajoutés sans toucher à `slots` : une équipe
+ * enregistrée par une version antérieure du site se recharge telle quelle.
  */
 (function (root) {
   'use strict';
@@ -45,6 +51,12 @@
     return slots;
   }
 
+  function emptySlugs() {
+    var out = [];
+    for (var i = 0; i < TEAM_SIZE; i++) out.push('');
+    return out;
+  }
+
   function emptyMovesets() {
     var sets = [];
     for (var i = 0; i < TEAM_SIZE; i++) sets.push([]);
@@ -58,6 +70,11 @@
    */
   function normalize(team) {
     if (!team) return team;
+    if (!Array.isArray(team.slugs)) team.slugs = emptySlugs();
+    while (team.slugs.length < TEAM_SIZE) team.slugs.push('');
+    team.slugs = team.slugs.slice(0, TEAM_SIZE).map(function (v) {
+      return typeof v === 'string' ? v : '';
+    });
     if (!Array.isArray(team.movesets)) team.movesets = emptyMovesets();
     while (team.movesets.length < TEAM_SIZE) team.movesets.push([]);
     team.movesets = team.movesets.slice(0, TEAM_SIZE).map(function (list) {
@@ -194,6 +211,7 @@
     if (!team) return active();
     if (state.teams.length === 1) {
       team.slots = emptySlots();
+      team.slugs = emptySlugs();
       team.movesets = emptyMovesets();
       write();
       return team;
@@ -212,24 +230,50 @@
    * analyser un jeu d'attaques que le joueur n'a jamais saisi. Choisir une
    * autre FORME du même Pokémon les conserve, elle.
    */
-  function setSlot(index, value) {
+  function setSlot(index, value, slug) {
     var team = active();
     if (!team || index < 0 || index >= TEAM_SIZE) return;
     var suivant = String(value || '');
-    if (team.slots[index] !== suivant && !memeEspece(team.slots[index], suivant)) {
+    var avant = team.slugs[index] || team.slots[index];
+    var apres = slug || suivant;
+    if (team.slots[index] !== suivant && !memeEspece(avant, apres)) {
       team.movesets[index] = [];
     }
     team.slots[index] = suivant;
+    team.slugs[index] = suivant ? String(slug || '') : '';
     write();
+  }
+
+  /**
+   * Identifiant réellement obtenu pour un emplacement, ou chaîne vide.
+   *
+   * C'est LUI qui doit être rechargé, pas le texte : « Lougaroc Forme
+   * Crépusculaire » peut cesser de se résoudre, « lycanroc-dusk » non.
+   */
+  function slugOf(index) {
+    var team = active();
+    if (!team || index < 0 || index >= TEAM_SIZE) return '';
+    return team.slugs[index] || '';
+  }
+
+  function slugs() {
+    var team = active();
+    return team ? team.slugs.slice() : emptySlugs();
   }
 
   /** Deux saisies désignent-elles le même Pokémon (forme mise à part) ? */
   function memeEspece(avant, apres) {
     var names = PokeStats.names;
     var forms = PokeStats.forms;
-    if (!avant || !apres || !names) return false;
-    var a = names.toCandidateSlug(avant).slug;
-    var b = names.toCandidateSlug(apres).slug;
+    if (!avant || !apres) return false;
+    var resoudre = function (v) {
+      /* Un identifiant déjà résolu se reconnaît : il est dans la table des
+       * formes, ou il ne ressemble pas à une saisie française. */
+      if (forms && forms.speciesOf(v)) return v;
+      return names ? names.toCandidateSlug(v).slug : v;
+    };
+    var a = resoudre(avant);
+    var b = resoudre(apres);
     if (a === b) return true;
     if (!forms) return false;
     var ea = forms.speciesOf(a);
@@ -277,6 +321,7 @@
     var team = active();
     if (!team) return;
     team.slots = emptySlots();
+    team.slugs = emptySlugs();
     team.movesets = emptyMovesets();
     write();
   }
@@ -304,6 +349,8 @@
     remove: remove,
     setSlot: setSlot,
     slots: slots,
+    slugs: slugs,
+    slugOf: slugOf,
     MAX_MOVES: MAX_MOVES,
     movesOf: movesOf,
     setMoves: setMoves,

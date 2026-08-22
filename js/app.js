@@ -32,10 +32,10 @@
 
   var slots = [];
   for (var i = 0; i < TEAM_SIZE; i++) {
-    slots.push({ input: '', record: null, status: 'empty', error: null, token: 0 });
+    slots.push({ input: '', slug: '', record: null, status: 'empty', error: null, token: 0 });
   }
 
-  var candidate = { input: '', record: null, status: 'empty', error: null, token: 0 };
+  var candidate = { input: '', slug: '', record: null, status: 'empty', error: null, token: 0 };
   var typeChartReady = false;
 
   /* ------------------------------------------------------------------ */
@@ -86,7 +86,9 @@
   /* La persistance passe désormais par js/teams.js : plusieurs équipes
    * coexistent, chacune rattachée à un jeu. */
   function saveTeam() {
-    slots.forEach(function (slot, index) { teams.setSlot(index, slot.input); });
+    slots.forEach(function (slot, index) {
+      teams.setSlot(index, slot.input, slot.slug);
+    });
   }
 
   function restoreTeam() {
@@ -182,11 +184,15 @@
   /** Recharge les emplacements depuis l'équipe devenue active. */
   function switchToActiveTeam() {
     var valeurs = teams.slots();
+    var identifiants = teams.slugs();
     slots.forEach(function (slot, index) {
       var input = slotElement(index).querySelector('.slot-input');
       input.value = valeurs[index] || '';
       slot.input = '';               // force le rechargement même à valeur égale
-      setSlotInput(index, valeurs[index] || '', { silent: true });
+      slot.slug = '';
+      setSlotInput(index, valeurs[index] || '', {
+        silent: true, slug: identifiants[index] || ''
+      });
     });
     renderTabs();
     onTeamChanged();
@@ -270,10 +276,10 @@
       ui.movesetHtml(slot.record, teams.movesOf(index), {
         index: index, open: openMovesets[index]
       });
-    ui.wireFormPicker(content, function (_slug, label) {
+    ui.wireFormPicker(content, function (formSlug, label) {
       var input = wrapper.querySelector('.slot-input');
       input.value = label;
-      setSlotInput(index, label);
+      setSlotInput(index, label, { slug: formSlug });
     });
     wireMoveset(content, index);
   }
@@ -286,6 +292,16 @@
    * sinon à chaque ajout, ce qui rendrait la saisie des quatre attaques
    * pénible. */
   var openMovesets = [];
+
+  /**
+   * Identifiant d'une fiche dans l'espace de noms de l'application, celui que
+   * partagent les données de génération, le Pokédex et la table des formes.
+   */
+  function canonicalSlug(record) {
+    if (!record) return '';
+    var forms = PokeStats.forms;
+    return (forms && forms.currentSlug(record)) || record.slug || '';
+  }
 
   /** Capacités que CE Pokémon peut apprendre, pour restreindre les propositions. */
   function learnableOf(record) {
@@ -508,23 +524,50 @@
     };
   }
 
+  /**
+   * Change le contenu d'un emplacement.
+   *
+   * @param {number} index
+   * @param {string} value texte saisi (ou libellé de forme)
+   * @param {{silent?: boolean, slug?: string}} [options]
+   *        `slug` : identifiant déjà connu. Fourni par le sélecteur de forme
+   *        et par la restauration de l'équipe, il évite de redevenir
+   *        dépendant de l'interprétation du libellé — c'est ce qui garantit
+   *        qu'un Lougaroc Crépusculaire reste crépusculaire après un F5.
+   */
   function setSlotInput(index, value, options) {
     var slot = slots[index];
+    var o = options || {};
     var trimmed = String(value || '').trim();
+    var slugDemande = o.slug || '';
 
-    if (trimmed === slot.input && slot.status !== 'error') {
+    /* Rien n'a changé : on ne recharge pas.
+     *
+     * Le champ émet un « change » dès qu'il perd le focus, y compris quand son
+     * contenu est identique — un simple clic ailleurs dans l'emplacement
+     * suffit. Recharger à ce moment-là redessinerait la fiche sous le doigt de
+     * l'utilisateur, et surtout : faute d'identifiant explicite, la forme
+     * choisie serait redevinée à partir du libellé. C'est ce qui ramenait un
+     * Lougaroc Crépusculaire à sa forme Diurne. */
+    var memeSaisie = trimmed === slot.input;
+    var memeIdentifiant = !slugDemande || slugDemande === slot.slug;
+    if (memeSaisie && memeIdentifiant && slot.status !== 'error') {
       return;
     }
 
     slot.input = trimmed;
+    /* On n'arrive ici que si la saisie a changé, ou qu'un identifiant précis
+     * est demandé : dans les deux cas l'ancien identifiant est caduc. */
+    slot.slug = slugDemande;
     slot.token += 1;
     var token = slot.token;
     /* Lors d'un changement d'onglet, les valeurs viennent déjà du stockage :
      * les réécrire écraserait l'équipe qu'on vient de quitter. */
-    if (!options || !options.silent) saveTeam();
+    if (!o.silent) saveTeam();
 
     if (!trimmed) {
       slot.record = null;
+      slot.slug = '';
       slot.status = 'empty';
       slot.error = null;
       renderSlot(index);
@@ -536,11 +579,21 @@
     slot.error = null;
     renderSlot(index);
 
-    dex.load(trimmed).then(
+    dex.load(trimmed, slugDemande ? { slug: slugDemande } : undefined).then(
       function (record) {
         if (slot.token !== token) return;      // saisie plus récente : on ignore
         slot.record = record;
         slot.status = 'ok';
+        /* On enregistre l'identifiant RÉELLEMENT obtenu, pas celui demandé :
+         * il est stable d'une visite à l'autre, quoi qu'il arrive à l'index
+         * des noms ou aux libellés.
+         *
+         * Ramené à l'espace d'identifiants de l'application : PokéAPI nomme la
+         * forme par défaut de Lougaroc « lycanroc-midday », les données de jeu
+         * l'appellent « lycanroc ». Enregistrer la seconde forme du nom permet
+         * au Pokédex et au moteur de la reconnaître sans traduction. */
+        slot.slug = canonicalSlug(record) || slugDemande;
+        teams.setSlot(index, slot.input, slot.slug);
         renderSlot(index);
         onTeamChanged();
       },
@@ -581,9 +634,17 @@
   /* Candidat                                                            */
   /* ------------------------------------------------------------------ */
 
-  function loadCandidate(value) {
+  /**
+   * @param {string} value saisie de l'utilisateur
+   * @param {{slug?: string}} [options] identifiant déjà connu — même rôle que
+   *        pour un emplacement d'équipe : il court-circuite l'interprétation
+   *        du libellé et garantit qu'une forme choisie ne se perd pas.
+   */
+  function loadCandidate(value, options) {
     var trimmed = String(value || '').trim();
+    var slugDemande = (options && options.slug) || '';
     candidate.input = trimmed;
+    candidate.slug = slugDemande;
     candidate.token += 1;
     var token = candidate.token;
 
@@ -591,6 +652,7 @@
 
     if (!trimmed) {
       candidate.record = null;
+      candidate.slug = '';
       candidate.status = 'empty';
       elCandidateCard.hidden = true;
       elEvolutionBlock.hidden = true;
@@ -603,17 +665,18 @@
     elCandidateCard.innerHTML = '<p style="margin:0;color:var(--text-faint)">Chargement…</p>';
     elEvolutionBlock.hidden = true;
 
-    dex.load(trimmed).then(
+    dex.load(trimmed, slugDemande ? { slug: slugDemande } : undefined).then(
       function (record) {
         if (candidate.token !== token) return;
         candidate.record = record;
         candidate.status = 'ok';
+        candidate.slug = canonicalSlug(record) || slugDemande;
         elCandidateCard.innerHTML =
           ui.monCard(record, { showStats: true, showAbilities: true }) +
           ui.formPickerHtml(record);
-        ui.wireFormPicker(elCandidateCard, function (_slug, label) {
+        ui.wireFormPicker(elCandidateCard, function (formSlug, label) {
           elCandidateInput.value = label;
-          loadCandidate(label);
+          loadCandidate(label, { slug: formSlug });
         });
         runAnalysis();
       },
@@ -729,17 +792,27 @@
       typeChartReady = true;
       updateStatusLine(names.status());
       /* Les fiches déjà chargées portent les stats de l'ancienne génération :
-       * on les recharge depuis leur saisie. */
+       * on les recharge depuis leur saisie.
+       *
+       * L'identifiant est réinjecté avec elle. Sans cela, ce rechargement —
+       * qui a lieu à CHAQUE chargement de page, pas seulement quand on change
+       * de jeu — reconstruirait la forme à partir du libellé français, et la
+       * moindre défaillance de cette interprétation ramènerait le joueur à la
+       * forme de base. Un Lougaroc Crépusculaire redeviendrait Diurne. */
       slots.forEach(function (slot, index) {
         if (!slot.input) return;
         var saisie = slot.input;
+        var identifiant = slot.slug;
         slot.input = '';
-        setSlotInput(index, saisie, { silent: true });
+        slot.slug = '';
+        setSlotInput(index, saisie, { silent: true, slug: identifiant });
       });
       if (candidate.input) {
         var saisie = candidate.input;
+        var identifiant = candidate.slug;
         candidate.input = '';
-        loadCandidate(saisie);
+        candidate.slug = '';
+        loadCandidate(saisie, { slug: identifiant });
       }
       renderTeamSummary();
     });
@@ -819,11 +892,12 @@
         renderTabs();
 
         var saved = restoreTeam();
+        var savedSlugs = teams.slugs();
         saved.slice(0, TEAM_SIZE).forEach(function (value, index) {
           if (!value) return;
           var input = slotElement(index).querySelector('.slot-input');
           input.value = value;
-          setSlotInput(index, value, { silent: true });
+          setSlotInput(index, value, { silent: true, slug: savedSlugs[index] || '' });
         });
         onGameChanged();
       },

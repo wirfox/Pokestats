@@ -396,8 +396,14 @@
    * @returns {Promise<Object>} fiche normalisée
    */
   function load(input, opts) {
-    var wantEvolutions = !opts || opts.withEvolutions !== false;
-    var candidate = names.toCandidateSlug(input);
+    var o = opts || {};
+    var wantEvolutions = o.withEvolutions !== false;
+    /* Un identifiant déjà connu court-circuite la résolution de nom : c'est
+     * ainsi qu'une forme choisie se recharge exactement telle quelle, sans
+     * repasser par l'interprétation d'un libellé français. */
+    var candidate = o.slug
+      ? { slug: o.slug, via: 'identifiant enregistré' }
+      : names.toCandidateSlug(input);
 
     return fetchBattleForm(candidate.slug)
       .then(function (pokemonDoc) {
