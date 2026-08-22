@@ -960,6 +960,37 @@ async function buildMoves() {
 const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /*
+ * Formes de transformation, disponibles seulement dans certaines générations.
+ *
+ * Se contenter de toutes les écarter serait faux : la Méga-Évolution EXISTE
+ * en X/Y et Rubis Oméga, le Gigamax en Épée/Bouclier. Les garder partout est
+ * tout aussi faux : ni l'une ni l'autre n'existent en Écarlate/Violet, et un
+ * joueur de 9G se verrait proposer d'atteindre une forme inatteignable, avec
+ * un total de stats gonflé de 100 points.
+ *
+ * La disponibilité est donc déclarée par génération.
+ */
+const TRANSFORMATION_FORMS = [
+  { motif: /-mega(-|$)/,     generations: [6, 7] },
+  { motif: /-primal(-|$)/,   generations: [6, 7] },
+  { motif: /-gmax(-|$)/,     generations: [8] },
+  { motif: /-totem(-|$)/,    generations: [7] },
+  /* Pikachu et Évoli « de départ » n'existent que dans Let's Go. */
+  { motif: /-starter(-|$)/,  generations: [7] },
+  /* Éthernatos Éternamax n'est jouable dans aucun jeu : c'est une forme de
+   * combat scénarisé. */
+  { motif: /-eternamax(-|$)/, generations: [] }
+];
+
+/** Cette forme est-elle obtenable à cette génération ? */
+function formeDisponible(slug, generation) {
+  for (const regle of TRANSFORMATION_FORMS) {
+    if (regle.motif.test(slug)) return regle.generations.indexOf(generation) !== -1;
+  }
+  return true;
+}
+
+/*
  * Types existant réellement dans une génération donnée.
  *
  * Le repère `isNonstandard === 'Future'` marque un type pas encore introduit.
@@ -1080,6 +1111,7 @@ async function buildGenerations() {
     const species = {};
     const dictionary = {};
     let sansTier = 0;
+    let ignorees = 0;
 
     for (const s of dex.species.all()) {
       if (s.num <= 0) continue;
@@ -1094,6 +1126,7 @@ async function buildGenerations() {
         ? resolveFormeSlug(s.name, formes)
         : toPokeApiSlug(enByNum.get(s.num) || s.name);
       if (!slug || (!formes.has(slug) && !especes.has(slug))) continue;
+      if (!formeDisponible(slug, generation)) { ignorees += 1; continue; }
 
       const st = s.baseStats;
       const metrics = await moveMetricsForGen(dex, s, generation, chart, typeNames);
@@ -1126,6 +1159,7 @@ async function buildGenerations() {
       regenerate: 'npm run build:gens',
       speciesCount: Object.keys(species).length,
       withoutTier: sansTier,
+      transformationsEcartees: ignorees,
       typeCount: typeNames.length,
       note:
         'Statistiques, types, tiers et capacités tels qu\'ils étaient à cette ' +
@@ -1161,7 +1195,8 @@ async function buildGenerations() {
     console.log(
       `✔ data/gen/gen${generation}.js`.padEnd(26) +
       `${String(Object.keys(species).length).padStart(4)} espèces · ` +
-      `${typeNames.length} types · ${String(Object.keys(dictionary).length).padStart(3)} capacités · ${ko} Ko`
+      `${typeNames.length} types · ${String(Object.keys(dictionary).length).padStart(3)} capacités · ${ko} Ko` +
+      (ignorees ? ` · ${ignorees} transformation(s) écartée(s)` : '')
     );
   }
 }

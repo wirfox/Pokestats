@@ -17,10 +17,11 @@
       "generation": 6,
       "provenance": "vérifié — généré depuis le paquet npm « @pkmn/dex »",
       "source": "@pkmn/dex@0.10.11 — données Génération 6",
-      "generatedAt": "2026-08-21",
+      "generatedAt": "2026-08-22",
       "regenerate": "npm run build:gens",
       "speciesCount": 811,
       "withoutTier": 1,
+      "transformationsEcartees": 0,
       "typeCount": 18,
       "note": "Statistiques, types, tiers et capacités tels qu'ils étaient à cette génération. Ils diffèrent parfois beaucoup des valeurs actuelles."
     },
