@@ -1,6 +1,6 @@
 # PokeStats
 
-**Analyseur d'équipe pour Pokémon Écarlate / Violet.**
+**Analyseur d'équipe pour jeu Pokémon.**
 Tu viens de capturer un Pokémon&nbsp;? Cet outil te dit — de façon vérifiable —
 s'il mérite une place dans ton équipe, s'il vaut mieux que l'un de tes membres
 actuels, et si son évolution justifie de l'entraîner.
