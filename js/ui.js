@@ -364,26 +364,69 @@
   function moveAdviceHtml(record, verdict, note) {
     var m = verdict.candidate;
     var entete = m
-      ? '<div class="advice-move">' + moveRowHtml(m, {}) + '</div>'
+      ? '<ol class="move-list-rows advice-candidate">' + moveRowHtml(m, {}) + '</ol>'
       : '';
 
     var sortante = verdict.drop
       ? '<p class="advice-drop">À la place de <strong>' +
-        escapeHtml(verdict.drop.move.frName) + '</strong>.</p>' +
-        '<ol class="move-list-rows">' + moveRowHtml(verdict.drop, { highlight: true }) + '</ol>'
+        escapeHtml(verdict.drop.move.frName) + '</strong>.</p>'
       : '';
 
     return '' +
       '<div class="advice advice-' + escapeHtml(verdict.ton) + '">' +
         '<p class="advice-verdict">' + escapeHtml(verdict.label) + '</p>' +
-        (entete ? '<ol class="move-list-rows advice-candidate">' + entete + '</ol>' : '') +
+        entete +
         sortante +
+        rankingHtml(verdict) +
         '<ul class="advice-reasons">' +
           verdict.reasons.map(function (r) {
             return '<li>' + escapeHtml(r.text) + '</li>';
           }).join('') +
         '</ul>' +
         (note ? '<p class="advice-note">' + escapeHtml(note) + '</p>' : '') +
+      '</div>';
+  }
+
+  /**
+   * Le classement des attaques, la nouvelle à sa place dedans.
+   *
+   * C'est la justification du verdict rendue visible : on voit d'un coup d'œil
+   * laquelle est la plus faible, et pourquoi c'est celle-là qui saute. Sans
+   * cette liste, il faudrait croire l'outil sur parole.
+   */
+  function rankingHtml(verdict) {
+    var liste = verdict.classement;
+    if (!liste || liste.length < 2) return '';
+    var sortant = verdict.drop ? verdict.drop.slug : null;
+    var candidat = verdict.candidate ? verdict.candidate.slug : null;
+
+    return '' +
+      '<div class="advice-ranking">' +
+        '<p class="advice-ranking-title">Classement de ses attaques ' +
+          '<span>espérance de dégâts</span></p>' +
+        '<ol class="rank-list">' +
+          liste.map(function (d, i) {
+            var role = d.slug === candidat ? ' is-new'
+              : d.slug === sortant ? ' is-out' : '';
+            var etiquette = d.slug === candidat ? 'nouvelle'
+              : d.slug === sortant ? 'sort' : '';
+            return '<li class="rank-row' + role + '">' +
+              '<span class="rank-pos">' + (i + 1) + '</span>' +
+              '<span class="type-chip type-' + escapeHtml(d.move.type) + '">' +
+                typeIcon(d.move.type) + escapeHtml(types.frType(d.move.type)) + '</span>' +
+              '<span class="rank-name">' + escapeHtml(d.move.frName) +
+                (etiquette ? '<span class="rank-tag">' + etiquette + '</span>' : '') +
+              '</span>' +
+              '<span class="rank-score">' + Math.round(d.score) + '</span>' +
+            '</li>';
+          }).join('') +
+        '</ol>' +
+        (verdict.horsClassement && verdict.horsClassement.length
+          ? '<p class="advice-ranking-note">Hors classement&nbsp;: ' +
+            escapeHtml(verdict.horsClassement.map(function (d) {
+              return d.move.frName;
+            }).join(', ')) + ' — aucune puissance à comparer.</p>'
+          : '') +
       '</div>';
   }
 

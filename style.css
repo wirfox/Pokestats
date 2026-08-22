@@ -2070,3 +2070,95 @@ code {
   color: var(--gold);
   line-height: 1.5;
 }
+
+/* --- Classement des attaques ---------------------------------------- */
+
+/*
+ * La justification du verdict, rendue visible : on voit d'un coup d'œil
+ * laquelle est la plus faible, et donc pourquoi c'est celle-là qui saute.
+ */
+.advice-ranking {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  padding: 9px 11px;
+}
+
+.advice-ranking-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 7px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.advice-ranking-title span { font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+.rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+}
+
+.rank-row.is-new { background: var(--good-bg); }
+.rank-row.is-out { background: var(--bad-bg); }
+
+.rank-pos {
+  flex: 0 0 auto;
+  width: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  font-size: 0.76rem;
+}
+
+.rank-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.rank-tag {
+  flex: 0 0 auto;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.rank-row.is-new .rank-tag { background: var(--good); color: #05240f; }
+.rank-row.is-out .rank-tag { background: var(--bad); color: #2a0009; }
+
+.rank-score {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.advice-ranking-note {
+  margin: 7px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  line-height: 1.5;
+}

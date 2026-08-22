@@ -515,6 +515,22 @@ connaître. C'est toi qui les saisis, dans le bloc « Ses attaques » de chaque
 membre de l'équipe. Tout ce qui suit n'a de valeur que parce qu'il repose sur ce
 que tu as réellement en main.
 
+### La règle
+
+Les attaques sont classées par espérance de dégâts, **tous types confondus**,
+et la nouvelle vient prendre sa place dans ce classement :
+
+- elle dépasse au moins une attaque → **on échange contre la plus faible** ;
+- elle ne dépasse aucune des quatre → **on ne change rien**.
+
+Le type n'entre pas dans le classement. Une attaque Électrik plus forte
+remplace une attaque Normal plus faible, et réciproquement : c'est le
+classement qui décide, pas la couleur de la vignette.
+
+Le verdict affiche ce classement complet, la nouvelle attaque à sa place
+dedans, avec le score de chacune. Tu vois donc *pourquoi* c'est celle-là qui
+saute, plutôt que d'avoir à croire l'outil sur parole.
+
 ### Le modèle de comparaison
 
 Les dégâts d'une attaque sont, à peu de chose près, proportionnels au produit
@@ -526,39 +542,43 @@ score = puissance × STAB × (précision / 100) × (statistique / 100)
 ```
 
 Ce **n'est pas** un calculateur de dégâts : ni les IV, ni les EV, ni la nature,
-ni l'objet tenu, ni le talent n'y entrent. C'est un ordre de grandeur, suffisant
-pour dire qu'une attaque en écrase clairement une autre, jamais pour départager
-deux attaques proches. C'est exactement pour cela que le seuil de décision est
-large.
+ni l'objet tenu, ni le talent n'y entrent. C'est un ordre de grandeur, calculé
+sur les vraies valeurs du jeu et de sa génération.
 
-### Les six refus
+### Ce qui est signalé sans bloquer
 
-Perdre une capacité est irréversible sans repasser par un Maître des Capacités.
-Le moteur se tait donc dès qu'il n'est pas certain — et se tait explicitement,
-plutôt que de donner un conseil tiède.
+Un échange peut être gagnant en dégâts et coûter autre chose. Ces conséquences
+ne sont pas des refus — le classement décide — mais elles sont **nommées** dans
+le verdict, pour que tu les lises avant de valider :
 
-| Il refuse de… | Pourquoi |
+| Avertissement | Quand |
 | --- | --- |
-| Chiffrer une capacité de **statut** | Danse-Lames, Feu Follet, Ténacité n'ont pas de puissance. Leur valeur dépend d'une stratégie que l'outil ne connaît pas : il les montre, les décrit, et te laisse juger. |
-| Chiffrer une attaque à **puissance variable** | Balayage dépend du poids de la cible, Gyroballe de la vitesse, Retour du bonheur. Leur puissance de base vaut 0 dans les données — les traiter comme telle en ferait la victime automatique de tous les échanges. |
-| Sacrifier une attaque **prioritaire** | Vive-Attaque frappe avant l'adversaire, un atout qui ne se lit pas dans une espérance de dégâts. |
-| Sacrifier la **dernière attaque du type** du Pokémon | Perdre son STAB pour une attaque neutre l'affaiblit sur son terrain le plus solide. |
-| Sacrifier une **couverture unique** | Si l'attaque sortante est la seule à frapper un type en super-efficace et que la nouvelle ne reprend pas cette couverture, l'échange fait perdre plus qu'il ne rapporte. |
-| Trancher pour un **gain faible** | Sous +20 %, l'écart tient dans ce que le modèle ignore. La réponse est « garde tes attaques ». |
+| **Dernière attaque de son type** | L'attaque sortante était la seule à bénéficier du bonus de 50 %. |
+| **Couverture perdue** | Elle était la seule à frapper un type en super-efficace, et la nouvelle ne reprend pas cette couverture. |
+| **Priorité perdue** | Elle frappait avant l'adversaire — un atout qui ne se lit pas dans une espérance de dégâts. |
+
+### Ce qui reste hors du classement
+
+Deux familles de capacités n'ont pas de puissance à comparer. Ce n'est pas de
+la prudence, c'est une absence de donnée :
+
+| Hors barème | Pourquoi |
+| --- | --- |
+| Capacités de **statut** | Danse-Lames, Feu Follet, Ténacité n'infligent aucun dégât. Leur valeur dépend d'une stratégie que l'outil ne connaît pas : il affiche leur description française et te laisse juger. |
+| Attaques à **puissance variable** | Balayage dépend du poids de la cible, Gyroballe de la vitesse, Retour du bonheur. Leur puissance de base vaut 0 dans les données — les classer comme des attaques nulles en ferait la victime automatique de tous les échanges. |
+
+Elles ne sont ni sacrifiées d'office, ni comparées en douce : le verdict les
+liste à part, en le disant.
 
 ### Les verdicts
 
 | Verdict | Quand |
 | --- | --- |
-| **Apprends-la** | Un emplacement est libre : rien à sacrifier, donc aucun risque. |
-| **Échange rentable** | Le gain est net et aucun garde-fou ne s'y oppose. L'attaque sortante est nommée. |
-| **Garde tes attaques** | Au moins un garde-fou s'oppose à l'échange, ou le gain est trop faible. |
+| **Apprends-la** | Un emplacement est libre : rien à sacrifier. |
+| **Échange rentable** | Elle dépasse la plus faible du classement. L'attaque sortante est nommée. |
+| **Garde tes attaques** | Elle ne dépasse aucune des attaques classées. |
 | **À toi de juger** | Une capacité de statut ou à puissance variable est en jeu. L'outil montre les faits et refuse de trancher. |
 | **Déjà apprise** / **Données insuffisantes** | Rien à conseiller. |
-
-Le cas le plus sûr est traité à part : une attaque de **même type et même
-catégorie** en plus fort (Éclair → Tonnerre) ne coûte aucune couverture. Le
-seuil y est abaissé à +5 %, parce que la comparaison y est directe.
 
 ---
 
@@ -658,7 +678,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-89 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+92 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -693,20 +713,22 @@ Une autre couvre les **formes multiples** :
 - les trois Lougaroc ont bien des statistiques distinctes — c'est la raison
   d'être du sélecteur.
 
-Une dernière couvre l'**échange d'attaques**, où une erreur coûte une capacité
-définitivement perdue :
+Une autre couvre l'**échange d'attaques** :
 
+- le classement décide, et le type n'y entre pas ;
+- le classement complet est fourni, trié, la nouvelle attaque à sa place dedans ;
+- une attaque qui ne dépasse aucune des quatre ne déclenche rien, et à égalité
+  stricte non plus ;
 - une capacité de statut n'est jamais mise en concurrence avec une attaque, et
   son effet est toujours montré ;
 - une attaque à puissance variable n'est ni chiffrée ni désignée comme sacrifice ;
-- une attaque prioritaire n'est jamais sacrifiée ;
-- la dernière attaque du type du Pokémon n'est pas perdue pour une attaque neutre ;
-- une couverture super-efficace unique n'est jamais perdue en silence ;
+- perdre son dernier bonus de type, une couverture unique ou une priorité est
+  toujours **nommé** dans le verdict ;
 - les valeurs suivent bien la génération (Lance-Flammes à 95 en 1G, Morsure de
   type Normal, Close Combat inexistant avant la 4G) ;
-- **600 tirages aléatoires** vérifient qu'aucun échange conseillé ne fait
-  baisser l'espérance de dégâts, et qu'aucun ne sacrifie une capacité de statut,
-  prioritaire ou à puissance variable.
+- **600 tirages aléatoires** vérifient que l'échange conseillé porte toujours
+  sur la dernière du classement, qu'il ne fait jamais baisser l'espérance de
+  dégâts, et qu'il ne sacrifie jamais une capacité hors barème.
 
 Une section courte protège la **persistance** : l'identifiant d'un emplacement
 est bien enregistré à côté de la saisie, une équipe créée par une version
@@ -786,10 +808,11 @@ logique de décision en Node, sans navigateur.
    d'attaques, pas à l'analyse d'équipe.
 4. **L'échange d'attaques repose sur une espérance de dégâts, pas sur un calcul
    exact.** Ni les IV, ni les EV, ni la nature, ni l'objet tenu, ni le talent
-   n'entrent dans le score — c'est pourquoi le moteur ne tranche qu'au-delà de
-   +20 % d'écart, et se tait le reste du temps. Les effets secondaires (brûlure,
-   recul, soin, changement de stats) ne sont pas modélisés non plus : une
-   attaque n'est jugée que sur les dégâts qu'elle inflige.
+   n'entrent dans le score. Les effets secondaires non plus (brûlure, recul,
+   soin, changement de stats) : une attaque n'est jugée que sur les dégâts
+   qu'elle inflige. Deux attaques proches dans le classement sont donc à peu
+   près équivalentes — l'écart affiché ne tranche vraiment que quand il est
+   large.
 5. **Le Téracristal n'est pas modélisé.** Il peut changer radicalement le profil
    défensif d'un Pokémon, donc l'analyse de types.
 6. **Les tiers reflètent le compétitif, pas l'aventure solo.** Pour finir

@@ -1295,17 +1295,22 @@ test('aucune forme de transformation ne subsiste hors de sa génération', funct
 });
 
 /* ================================================================== */
-section('10. Échange d’attaques — ce que le moteur refuse de chiffrer');
+section('10. Échange d’attaques — le classement décide, le type n’y entre pas');
 /* ================================================================== */
 
 /*
  * POURQUOI CES TESTS
  * ------------------
- * Conseiller un échange d'attaques, c'est demander au joueur de PERDRE
- * définitivement une capacité. Une erreur ici ne se rattrape pas d'un clic :
- * il faut retrouver un Maître des Capacités. Le moteur doit donc se taire dès
- * qu'il n'est pas certain — et se taire explicitement, pas en donnant un
- * conseil tiède.
+ * La règle est simple : les attaques sont classées par espérance de dégâts,
+ * tous types confondus, et la nouvelle remplace la plus faible — sauf si elle
+ * n'en dépasse aucune. Ces tests vérifient que le classement décide
+ * réellement, que le type n'y entre pas, et que ce qu'un échange coûte par
+ * ailleurs (dernier STAB, couverture unique, priorité) est NOMMÉ plutôt que
+ * caché ou transformé en refus.
+ *
+ * Deux familles de capacités restent hors barème : elles n'ont pas de
+ * puissance à comparer, et les classer comme « nulles » en ferait la victime
+ * automatique de tous les échanges.
  */
 
 function chargerAttaques() {
@@ -1338,13 +1343,51 @@ test('un emplacement libre suffit : aucune attaque n’est sacrifiée', function
   assert.strictEqual(v.drop, null, 'rien ne doit être sacrifié quand il reste de la place');
 });
 
-test('une attaque nettement plus forte du même type remplace la plus faible', function () {
+test('une attaque plus forte remplace la plus faible du classement', function () {
   var moveset = chargerAttaques();
+  var movedex = globalThis.PokeStats.movedex;
   var v = moveset.evaluate(PIKACHU,
     ['thunder-shock', 'quick-attack', 'tail-whip', 'growl'], 'thunderbolt');
+
   assert.strictEqual(v.code, 'remplace');
-  assert.strictEqual(v.drop.slug, 'thunder-shock',
-    'c’est Éclair, même type et plus faible, qui doit sauter');
+  /* Vive-Attaque (22) est plus faible qu'Éclair (30, bonus de type et
+   * Attaque Spéciale supérieure) : c'est donc elle qui saute, bien qu'elles
+   * soient de types différents. Le classement décide, pas le type. */
+  assert.strictEqual(v.drop.slug, 'quick-attack');
+  assert.ok(moveset.scoreOf(PIKACHU, movedex.get('quick-attack')) <
+            moveset.scoreOf(PIKACHU, movedex.get('thunder-shock')),
+    'prémisse du test : Vive-Attaque doit bien être la plus faible des deux');
+});
+
+test('le type n’entre pas dans le classement', function () {
+  var moveset = chargerAttaques();
+  /* Une attaque Acier remplace une attaque Normal plus faible, alors que le
+   * Pokémon a déjà une attaque Électrik plus forte. C'est le classement qui
+   * décide, pas la couleur de la vignette. */
+  var v = moveset.evaluate(PIKACHU,
+    ['thunderbolt', 'quick-attack', 'tackle', 'tail-whip'], 'iron-tail');
+  assert.strictEqual(v.code, 'remplace');
+  assert.ok(v.drop.slug === 'tackle' || v.drop.slug === 'quick-attack',
+    'la sortante doit être la plus faible, ici une attaque Normal : ' + v.drop.slug);
+  assert.notStrictEqual(v.drop.slug, 'thunderbolt',
+    'la meilleure attaque ne saute jamais');
+});
+
+test('le classement complet est fourni, la nouvelle attaque à sa place dedans', function () {
+  var moveset = chargerAttaques();
+  var v = moveset.evaluate(PIKACHU,
+    ['thunderbolt', 'quick-attack', 'tackle', 'tail-whip'], 'iron-tail');
+
+  assert.ok(Array.isArray(v.classement) && v.classement.length >= 2,
+    'sans classement affiché, il faudrait croire l’outil sur parole');
+  for (var i = 1; i < v.classement.length; i++) {
+    assert.ok(v.classement[i - 1].score >= v.classement[i].score,
+      'le classement doit être trié du plus fort au plus faible');
+  }
+  assert.ok(v.classement.some(function (d) { return d.slug === 'iron-tail'; }),
+    'la nouvelle attaque doit figurer dans le classement');
+  assert.strictEqual(v.classement[v.classement.length - 1].slug, v.drop.slug,
+    'la sortante est bien la dernière du classement');
 });
 
 test('une capacité de statut n’est jamais mise en concurrence avec une attaque', function () {
@@ -1378,44 +1421,58 @@ test('une attaque à puissance variable n’est jamais désignée comme sacrific
   }
 });
 
-test('une attaque prioritaire n’est jamais désignée comme sacrifice', function () {
+test('sacrifier une attaque prioritaire est signalé, pas caché', function () {
   var moveset = chargerAttaques();
-  /* Vive-Attaque frappe avant l’adversaire. Son score est bas, mais sa valeur
-   * ne se lit pas dans une espérance de dégâts. */
+  /* Vive-Attaque frappe avant l’adversaire : le classement ne sait pas
+   * compter cet atout. Il décide quand même — mais le joueur doit le lire. */
   var v = moveset.evaluate(CARCHACROK,
     ['quick-attack', 'dragon-claw', 'earthquake', 'crunch'], 'iron-head');
-  if (v.drop) {
-    assert.notStrictEqual(v.drop.slug, 'quick-attack');
-  }
+  assert.strictEqual(v.code, 'remplace');
+  assert.strictEqual(v.drop.slug, 'quick-attack');
+  assert.ok(v.reasons.some(function (r) { return r.code === 'priorite-perdue'; }),
+    'la perte de la priorité doit être nommée');
 });
 
-test('la dernière attaque du type du Pokémon n’est pas sacrifiée pour une attaque neutre', function () {
+test('perdre sa dernière attaque de son type est signalé, pas caché', function () {
   var moveset = chargerAttaques();
-  var faible = combattant('Cobaye', ['fire'], [80, 120, 80, 60, 80, 80]);
-  /* Une seule attaque Feu, trois attaques neutres plus faibles qu'elle en
-   * apparence : le moteur ne doit pas conseiller de perdre le STAB. */
-  var v = moveset.evaluate(faible, ['ember', 'pound', 'scratch', 'tackle'], 'strength');
-  if (v.code === 'remplace') {
-    assert.notStrictEqual(v.drop.slug, 'ember',
-      'perdre sa dernière attaque de son type n’est jamais conseillé');
-  }
+  var cobaye = combattant('Cobaye', ['fire'], [80, 120, 80, 60, 80, 80]);
+  /* Flammèche est la plus faible du classement : elle saute. Mais c'est la
+   * seule attaque Feu du Pokémon, et cela doit être dit. */
+  var v = moveset.evaluate(cobaye, ['ember', 'pound', 'scratch', 'tackle'], 'strength');
+  assert.strictEqual(v.code, 'remplace');
+  assert.strictEqual(v.drop.slug, 'ember');
+  assert.ok(v.reasons.some(function (r) { return r.code === 'derniere-stab'; }),
+    'la perte du bonus de type doit être nommée');
 });
 
 test('une couverture super-efficace unique n’est jamais perdue en silence', function () {
   var moveset = chargerAttaques();
   var v = moveset.evaluate(CARCHACROK, SET_CARCHA, 'draco-meteor');
-  assert.strictEqual(v.code, 'garde');
+  assert.strictEqual(v.code, 'remplace');
+  assert.strictEqual(v.drop.slug, 'fire-fang');
   assert.ok(v.reasons.some(function (r) { return r.code === 'couverture-perdue'; }),
-    'le motif doit nommer la couverture qui serait perdue');
+    'le motif doit nommer la couverture qui disparaît');
 });
 
-test('un gain trop faible ne déclenche aucun échange', function () {
+test('une attaque plus faible que les quatre ne déclenche aucun échange', function () {
   var moveset = chargerAttaques();
-  /* Deux attaques Sol physiques quasi identiques : l’écart tient dans ce que
-   * le modèle ignore (IV, EV, nature, objet). */
-  var v = moveset.evaluate(CARCHACROK,
-    ['earthquake', 'dragon-claw', 'crunch', 'fire-fang'], 'high-horsepower');
-  assert.notStrictEqual(v.code, 'remplace');
+  var v = moveset.evaluate(PIKACHU,
+    ['thunderbolt', 'thunder', 'volt-tackle', 'wild-charge'], 'tackle');
+  assert.strictEqual(v.code, 'garde');
+  assert.strictEqual(v.drop, null);
+  assert.ok(v.reasons.some(function (r) { return r.code === 'plus-faible-que-tout'; }));
+});
+
+test('à égalité stricte, on ne change rien', function () {
+  var moveset = chargerAttaques();
+  var cobaye = combattant('Cobaye', ['normal'], [80, 100, 80, 100, 80, 80]);
+  /* Écras’Face, Griffe, Charge, Vive-Attaque et Bluff : toutes Normal,
+   * physiques, 40 de puissance, 100 % de précision. Aucune ne dépasse les
+   * autres — rien ne justifie d'en troquer une contre une autre. */
+  var v = moveset.evaluate(cobaye,
+    ['pound', 'scratch', 'tackle', 'quick-attack'], 'fake-out');
+  assert.strictEqual(v.code, 'garde');
+  assert.strictEqual(v.drop, null);
 });
 
 test('une capacité déjà connue est signalée, pas réanalysée', function () {
@@ -1432,7 +1489,7 @@ test('une capacité inconnue ne produit jamais de conseil', function () {
   assert.strictEqual(v.drop, null);
 });
 
-test('propriété : aucun échange conseillé ne fait baisser l’espérance de dégâts', function () {
+test('propriété : l’échange conseillé porte toujours sur la plus faible', function () {
   var moveset = chargerAttaques();
   var movedex = globalThis.PokeStats.movedex;
 
@@ -1473,8 +1530,13 @@ test('propriété : aucun échange conseillé ne fait baisser l’espérance de 
       'échange conseillé à la baisse : ' + candidat + ' (' + Math.round(apres) +
       ') pour ' + v.drop.slug + ' (' + Math.round(avant) + ') sur ' + mon.frName);
     assert.ok(!v.drop.move.isStatus, 'une capacité de statut ne se sacrifie jamais');
-    assert.ok(v.drop.move.priority <= 0, 'une attaque prioritaire ne se sacrifie jamais');
     assert.strictEqual(v.drop.variable, false, 'une puissance variable ne se sacrifie jamais');
+
+    /* La sortante doit vraiment être la dernière du classement. */
+    v.classement.forEach(function (d) {
+      assert.ok(d.score >= avant - 1e-9,
+        'une attaque plus faible que la sortante a été épargnée : ' + d.slug);
+    });
   }
 
   assert.ok(verifs >= 30, 'trop peu d’échanges conseillés pour conclure (' + verifs + ')');

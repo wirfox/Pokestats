@@ -3,8 +3,19 @@
  * ===============================================================
  *
  * Le jeu propose une nouvelle capacité, les quatre emplacements sont pris :
- * laquelle sacrifier, et est-ce seulement rentable ? Ce module répond, ou
- * refuse de répondre.
+ * laquelle sacrifier ?
+ *
+ * LA RÈGLE
+ * --------
+ * Les quatre attaques sont classées de la plus forte à la plus faible, tous
+ * types confondus, et la nouvelle vient prendre sa place dans ce classement.
+ *
+ *   - Elle dépasse au moins une attaque  → on échange contre LA PLUS FAIBLE.
+ *   - Elle ne dépasse aucune des quatre  → on ne change rien.
+ *
+ * Le type n'entre pas dans le classement. Une attaque Électrik plus forte
+ * remplace une attaque Normal plus faible, et réciproquement : c'est le
+ * classement qui décide, pas la couleur de la vignette.
  *
  * MODÈLE DE COMPARAISON
  * ---------------------
@@ -16,30 +27,31 @@
  *     score = puissance × STAB × (précision / 100) × (statistique / 100)
  *
  * Ce n'est PAS un calculateur de dégâts : ni les IV, ni les EV, ni la nature,
- * ni l'objet tenu, ni le talent n'entrent en jeu. C'est un ordre de grandeur,
- * suffisant pour dire qu'une attaque en écrase clairement une autre, jamais
- * pour départager deux attaques proches — et c'est exactement pour cela que
- * le seuil de décision est large.
+ * ni l'objet tenu, ni le talent n'entrent en jeu. C'est un ordre de grandeur.
  *
- * CE QUE LE MODULE REFUSE DE FAIRE
- * --------------------------------
- *   1. Chiffrer une capacité de STATUT. Danse-Lames, Feu Follet, Ténacité
- *      n'ont pas de puissance ; leur valeur dépend d'une stratégie que
- *      l'application ne connaît pas. Elles sont montrées, décrites, et laissées
- *      au jugement du joueur.
- *   2. Chiffrer une attaque à PUISSANCE VARIABLE. Balayage dépend du poids de
- *      la cible, Gyroballe de la différence de Vitesse, Retour du bonheur du
- *      Pokémon. Leur puissance de base vaut 0 dans les données : la traiter
- *      comme une puissance réelle en ferait la victime automatique de tous les
- *      échanges — l'erreur inverse de celle qu'on veut éviter.
- *   3. Sacrifier une attaque PRIORITAIRE. Vive-Attaque frappe avant l'adversaire,
- *      un atout qui ne se lit pas dans une espérance de dégâts.
- *   4. Sacrifier la dernière attaque du type du Pokémon (STAB) pour une
- *      attaque qui n'en est pas une.
- *   5. Sacrifier la seule attaque qui frappe un type en super-efficace, si la
- *      nouvelle ne reprend pas cette couverture.
- *   6. Trancher pour un gain faible. En dessous du seuil, la réponse est
- *      « garde tes attaques ».
+ * CE QUE LE MODULE SIGNALE SANS BLOQUER
+ * -------------------------------------
+ * Un échange peut être gagnant en dégâts et coûter autre chose : la dernière
+ * attaque du type du Pokémon, la seule qui frappe un type en super-efficace,
+ * ou une attaque prioritaire. Ces conséquences ne sont pas des refus — le
+ * classement décide —, mais elles sont NOMMÉES dans le verdict. Le joueur voit
+ * ce qu'il perd avant de valider.
+ *
+ * CE QU'IL REFUSE DE CHIFFRER
+ * ---------------------------
+ * Deux familles de capacités n'ont pas de puissance à comparer. Ce n'est pas
+ * de la prudence, c'est une absence de donnée :
+ *
+ *   1. Les capacités de STATUT. Danse-Lames, Feu Follet, Ténacité n'infligent
+ *      aucun dégât ; leur valeur dépend d'une stratégie que l'application ne
+ *      connaît pas. Elles sont montrées, décrites, et laissées au joueur.
+ *   2. Les attaques à PUISSANCE VARIABLE. Balayage dépend du poids de la
+ *      cible, Gyroballe de la différence de Vitesse, Retour du bonheur du
+ *      Pokémon. Leur puissance de base vaut 0 dans les données : les classer
+ *      comme des attaques de puissance nulle en ferait la victime automatique
+ *      de tous les échanges.
+ *
+ * Ces capacités-là restent hors du classement, et le verdict le dit.
  */
 (function (root) {
   'use strict';
@@ -49,13 +61,6 @@
   var MAX_MOVES = 4;
 
   var SEUILS = {
-    /* La nouvelle attaque doit dépasser la plus faible d'au moins 20 %.
-     * En dessous, l'écart tient dans l'imprécision du modèle (IV, EV, nature,
-     * objet) : trancher serait donner une fausse certitude. */
-    GAIN_MINIMUM: 1.20,
-    /* Un échange à type et catégorie identiques ne coûte aucune couverture :
-     * un gain plus modeste suffit à le justifier. */
-    GAIN_MEME_TYPE: 1.05,
     /* Multiplicateur à partir duquel on parle de « super-efficace ». */
     SUPER_EFFICACE: 2
   };
@@ -255,124 +260,132 @@
       }] : []), contexte);
     }
 
-    /* Seules les attaques offensives sont sacrifiables : échanger une capacité
-     * de statut contre des dégâts est un choix de stratégie, pas de chiffres. */
+    /* Le classement ne retient que ce qui a une puissance à comparer. Une
+     * capacité de statut ou à puissance variable n'est pas « faible » : elle
+     * est hors barème, et le dire vaut mieux que la sacrifier par défaut. */
     var offensives = actuel.moves.filter(function (m) { return !m.move.isStatus; });
-
-    /* Sacrifiables : les attaques que le modèle sait vraiment mesurer. Une
-     * attaque prioritaire ou à puissance variable n'est pas « la plus faible »,
-     * elle est hors barème — la désigner d'office serait le pire des conseils. */
-    var sacrifiables = offensives.filter(function (m) {
-      return m.score !== null && !m.priority;
+    var classables = offensives.filter(function (m) { return m.score !== null; });
+    var horsBareme = actuel.moves.filter(function (m) {
+      return m.move.isStatus || m.score === null;
     });
 
-    if (!sacrifiables.length) {
-      var pourquoi = !offensives.length
-        ? 'Les quatre capacités actuelles sont des capacités de statut.'
-        : 'Aucune des attaques actuelles n’est comparable sur le papier : ' +
-          intraduisibles(offensives) + '.';
+    if (!classables.length) {
       return result('a-toi-de-voir', null, [{
         code: 'rien-de-comparable',
-        text: pourquoi + ' Choisir laquelle sacrifier relève d’une stratégie que ' +
-          'cet outil ne connaît pas : il ne tranche pas à ta place.'
+        text: (offensives.length
+          ? 'Aucune des attaques actuelles n’a de puissance comparable : ' +
+            intraduisibles(offensives) + '.'
+          : 'Les quatre capacités actuelles sont des capacités de statut.') +
+          ' Il n’y a rien à classer, et cet outil ne tranche pas au hasard.'
       }], contexte);
     }
 
-    var scores = sacrifiables.slice().sort(function (a, b) { return a.score - b.score; });
-    var faible = scores[0];
-    var mesurables = offensives.filter(function (m) { return m.score !== null; });
-    var meilleur = mesurables.slice().sort(function (a, b) {
-      return a.score - b.score;
-    })[mesurables.length - 1];
+    /* Classement, du plus fort au plus faible. C'est lui qui décide. */
+    var classement = classables.slice().sort(function (a, b) { return b.score - a.score; });
+    var faible = classement[classement.length - 1];
+    var meilleur = classement[0];
 
-    /* Cas le plus sûr : même type ET même catégorie, en plus fort. Aucune
-     * couverture perdue, la comparaison est directe. */
-    var memeType = sacrifiables.filter(function (m) {
-      return m.move.type === candidat.move.type &&
-             m.move.category === candidat.move.category &&
-             m.score < candidat.score;
-    }).sort(function (a, b) { return a.score - b.score; });
+    /* Le classement complet, la nouvelle attaque à sa place dedans : c'est la
+     * façon la plus honnête de montrer POURQUOI c'est celle-là qui saute. */
+    contexte.classement = classement.concat([candidat])
+      .sort(function (a, b) { return b.score - a.score; });
+    contexte.horsClassement = horsBareme;
 
-    if (memeType.length && candidat.score >= memeType[0].score * SEUILS.GAIN_MEME_TYPE) {
-      var remplacee = memeType[0];
-      return result('remplace', remplacee, [{
-        code: 'meme-type-plus-fort',
-        text: 'Même type et même catégorie que ' + remplacee.move.frName +
-          ', mais plus efficace (' + Math.round(candidat.score) + ' contre ' +
-          Math.round(remplacee.score) + ' en espérance de dégâts) : l’échange ne ' +
-          'coûte aucune couverture.'
-      }, comparaisonBrute(candidat, remplacee)], contexte);
+    var horsBaremeMotif = horsBareme.length ? [{
+      code: 'hors-classement',
+      text: intraduisibles(horsBareme) + ' ' + (horsBareme.length > 1 ? 'restent' : 'reste') +
+        ' hors du classement : ' + (horsBareme.length > 1 ? 'elles n’ont' : 'elle n’a') +
+        ' pas de puissance à comparer.'
+    }] : [];
+
+    /* Elle ne dépasse aucune des attaques en place : rien à changer. */
+    if (candidat.score <= faible.score) {
+      return result('garde', null, [{
+        code: 'plus-faible-que-tout',
+        text: candidat.move.frName + ' (' + Math.round(candidat.score) +
+          ' en espérance de dégâts) ne dépasse aucune de tes attaques actuelles. ' +
+          'La plus faible, ' + faible.move.frName + ', vaut déjà ' +
+          Math.round(faible.score) + '.'
+      }].concat(horsBaremeMotif), contexte);
     }
 
-    /* Sinon : la plus faible attaque est la seule candidate au sacrifice, et
-     * elle doit franchir tous les garde-fous. */
-    var blocages = [];
-
-    var stabRestants = offensives.filter(function (m) {
-      return m.stab && m.slug !== faible.slug;
-    }).length;
-    if (faible.stab && !candidat.stab && stabRestants === 0) {
-      blocages.push({
-        code: 'derniere-stab',
-        text: faible.move.frName + ' est sa dernière attaque de son propre type. ' +
-          'La perdre pour une attaque sans bonus de type affaiblirait ' +
-          record.frName + ' sur son terrain le plus solide.'
-      });
-    }
-
-    var sansFaible = union(offensives.filter(function (m) { return m.slug !== faible.slug; })
-      .map(function (m) { return m.hits; }).concat([candidat.hits]));
-    var perdus = difference(faible.hits, sansFaible);
-    if (perdus.length) {
-      blocages.push({
-        code: 'couverture-perdue',
-        text: faible.move.frName + ' est la seule à frapper ' + frTypes(perdus) +
-          ' en super-efficace. ' + candidat.move.frName + ' ne reprend pas cette ' +
-          'couverture : l’échange ferait perdre plus qu’il ne rapporte.'
-      });
-    }
-
-    if (candidat.score < faible.score * SEUILS.GAIN_MINIMUM) {
-      blocages.push({
-        code: 'gain-insuffisant',
-        text: 'Le gain est trop faible pour être sûr : ' + Math.round(candidat.score) +
-          ' contre ' + Math.round(faible.score) + ' pour ' + faible.move.frName +
-          '. Sous +' + Math.round((SEUILS.GAIN_MINIMUM - 1) * 100) + ' %, l’écart ' +
-          'tient dans ce que le modèle ignore (IV, EV, nature, objet).'
-      });
-    }
-
-    if (blocages.length) {
-      var repere = meilleur ? [{
-        code: 'reference',
-        text: 'Ta meilleure attaque actuelle reste ' + meilleur.move.frName +
-          ' (' + Math.round(meilleur.score) + ').'
-      }] : [];
-      return result('garde', null, blocages.concat(repere), contexte);
-    }
-
-    var motifsOk = [{
-      code: 'gain-net',
-      text: candidat.move.frName + ' dépasse nettement ' + faible.move.frName +
-        ' (' + Math.round(candidat.score) + ' contre ' + Math.round(faible.score) +
-        ' en espérance de dégâts).'
+    /* Elle en dépasse au moins une : on échange contre la plus faible, quel
+     * que soit son type. */
+    var raisons = [{
+      code: 'plus-forte-que-la-plus-faible',
+      text: candidat.move.frName + ' (' + Math.round(candidat.score) + ') dépasse ' +
+        faible.move.frName + ' (' + Math.round(faible.score) + '), la plus faible ' +
+        'de tes ' + classement.length + ' attaques classées. ' +
+        (meilleur.slug === faible.slug
+          ? ''
+          : 'Ta meilleure reste ' + meilleur.move.frName + ' (' +
+            Math.round(meilleur.score) + ').')
     }, comparaisonBrute(candidat, faible)];
 
     if (candidat.stab && !faible.stab) {
-      motifsOk.push({
+      raisons.push({
         code: 'stab-gagne',
-        text: 'Elle est en plus du type de ' + record.frName + ' : bonus de 50 %.'
+        text: 'Elle est du type de ' + record.frName + ' : bonus de 50 % sur ses dégâts.'
       });
     }
-    var gagnes = difference(candidat.hits, union(offensives.map(function (m) { return m.hits; })));
+
+    /* Ce que l'échange coûte par ailleurs. Ces avertissements ne bloquent
+     * rien — le classement a décidé — mais le joueur doit les lire avant de
+     * valider, parce qu'ils ne se lisent pas dans une espérance de dégâts. */
+    raisons = raisons.concat(avertissements(record, candidat, faible, classables));
+    return result('remplace', faible, raisons.concat(horsBaremeMotif), contexte);
+  }
+
+  /**
+   * Conséquences d'un échange qui n'apparaissent pas dans le classement.
+   * Signalées, jamais bloquantes : c'est le joueur qui valide.
+   */
+  function avertissements(record, candidat, sortante, classables) {
+    var out = [];
+
+    var stabRestants = classables.filter(function (m) {
+      return m.stab && m.slug !== sortante.slug;
+    }).length;
+    if (sortante.stab && !candidat.stab && stabRestants === 0) {
+      out.push({
+        code: 'derniere-stab',
+        text: 'Attention : ' + sortante.move.frName + ' est sa dernière attaque de ' +
+          'son propre type. Après l’échange, ' + record.frName + ' n’aura plus ' +
+          'aucune attaque à bonus de type.'
+      });
+    }
+
+    var sansSortante = union(classables
+      .filter(function (m) { return m.slug !== sortante.slug; })
+      .map(function (m) { return m.hits; })
+      .concat([candidat.hits]));
+    var perdus = difference(sortante.hits, sansSortante);
+    if (perdus.length) {
+      out.push({
+        code: 'couverture-perdue',
+        text: 'Attention : ' + sortante.move.frName + ' est la seule à frapper ' +
+          frTypes(perdus) + ' en super-efficace. Cette couverture disparaît.'
+      });
+    }
+
+    if (sortante.move.priority > 0) {
+      out.push({
+        code: 'priorite-perdue',
+        text: 'Attention : ' + sortante.move.frName + ' frappe avant l’adversaire. ' +
+          'La priorité ne se lit pas dans une espérance de dégâts, et le ' +
+          'classement ne la compte donc pas.'
+      });
+    }
+
+    var gagnes = difference(candidat.hits, union(classables.map(function (m) { return m.hits; })));
     if (gagnes.length) {
-      motifsOk.push({
+      out.push({
         code: 'couverture-gagnee',
         text: 'Elle ouvre du super-efficace contre ' + frTypes(gagnes) + '.'
       });
     }
 
-    return result('remplace', faible, motifsOk, contexte);
+    return out;
   }
 
   /** Motif purement factuel : les chiffres bruts, sans interprétation. */
