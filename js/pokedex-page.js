@@ -49,6 +49,16 @@
   }
 
   /**
+   * Nom à afficher, forme comprise : « Lougaroc Forme Crépusculaire » plutôt
+   * que l'identifiant brut « lycanroc-dusk », qu'aucun joueur ne reconnaît.
+   */
+  function nomAffichable(slug) {
+    var forms = PokeStats.forms;
+    if (forms && forms.speciesOf(slug)) return forms.displayName(slug);
+    return frenchName(slug);
+  }
+
+  /**
    * Assemble la liste à afficher : les espèces du pokédex du jeu, croisées
    * avec les données de sa génération.
    */
@@ -56,22 +66,38 @@
     var data = game.genData();
     if (!data) return [];
     var ordre = game.dexSpecies();
+    var forms = PokeStats.forms;
 
-    return ordre.map(function (slug, index) {
-      var s = data.species[slug];
-      if (!s) return null;   // présente au pokédex mais absente des données
-      return {
-        slug: slug,
-        frName: frenchName(slug),
-        dexIndex: index,
-        num: s.n,
-        stats: s.s,
-        bst: s.s.reduce(function (a, b) { return a + b; }, 0),
-        types: s.t,
-        tier: s.r,
-        moves: s.m
-      };
-    }).filter(Boolean);
+    var liste = [];
+    ordre.forEach(function (slug, index) {
+      /* Une espèce à formes multiples occupe autant d'entrées que de formes :
+       * Lougaroc Diurne, Nocturne et Crépusculaire n'ont ni les mêmes
+       * statistiques ni le même tier, les fondre en une seule vignette
+       * afficherait des chiffres faux pour deux d'entre elles. */
+      var variantes = forms ? forms.optionsFor(slug) : [];
+      if (!variantes.length) variantes = [{ slug: slug, label: null, id: null }];
+
+      variantes.forEach(function (variante) {
+        var s = data.species[variante.slug] || data.species[slug];
+        if (!s) return;   // présente au pokédex mais absente des données
+        var nom = frenchName(slug);
+        liste.push({
+          slug: variante.slug,
+          species: slug,
+          frName: variante.label ? names.formLabel(nom, variante.label) : nom,
+          formLabel: variante.label,
+          artId: variante.id || s.n,
+          dexIndex: index,
+          num: s.n,
+          stats: s.s,
+          bst: s.s.reduce(function (a, b) { return a + b; }, 0),
+          types: s.t,
+          tier: s.r,
+          moves: s.m
+        });
+      });
+    });
+    return liste;
   }
 
   /* ------------------------------------------------------------------ */
@@ -112,9 +138,19 @@
 
   function updateCount() {
     var jeu = game.current();
+
+    /* Une espèce à formes multiples occupe plusieurs vignettes : sans cette
+     * précision, le total paraîtrait en contradiction avec le nombre d'espèces
+     * annoncé par le sélecteur de jeu. */
+    var especes = Object.create(null);
+    filtered.forEach(function (e) { especes[e.species] = true; });
+    var nbEspeces = Object.keys(especes).length;
+
     $('dex-count').textContent =
-      filtered.length + ' Pokémon' + (filtered.length === entries.length ? '' :
-        ' sur ' + entries.length) + (jeu ? ' — ' + jeu.label : '');
+      filtered.length + ' Pokémon' +
+      (filtered.length === entries.length ? '' : ' sur ' + entries.length) +
+      (filtered.length > nbEspeces ? ' (' + nbEspeces + ' espèces, formes comprises)' : '') +
+      (jeu ? ' — ' + jeu.label : '');
     $('dex-empty').hidden = filtered.length !== 0;
   }
 
@@ -132,8 +168,11 @@
     return '' +
       '<button type="button" class="dex-card" data-slug="' + escapeHtml(e.slug) + '">' +
         '<span class="dex-card-num">n°' + e.num + '</span>' +
-        '<img class="dex-card-img" src="' + escapeHtml(artworkUrl(e.num)) + '" ' +
-          'alt="" loading="lazy" width="96" height="96" onerror="this.style.visibility=\'hidden\'">' +
+        '<img class="dex-card-img" src="' + escapeHtml(artworkUrl(e.artId)) + '" ' +
+          'alt="" loading="lazy" width="96" height="96" ' +
+          'data-repli="' + escapeHtml(artworkUrl(e.num)) + '" ' +
+          'onerror="if(this.src!==this.dataset.repli){this.src=this.dataset.repli;}' +
+          'else{this.style.visibility=\'hidden\';}">' +
         '<span class="dex-card-name">' + escapeHtml(e.frName) + '</span>' +
         '<span class="dex-card-types">' + ui.typeChips(e.types) + '</span>' +
         '<span class="dex-card-foot">' +
@@ -246,7 +285,7 @@
       return '<button type="button" class="suggest-item' +
         (i === indexActif ? ' is-active' : '') + '" data-slug="' +
         escapeHtml(e.slug) + '" role="option" aria-selected="' + (i === indexActif) + '">' +
-        '<img class="suggest-img" src="' + escapeHtml(artworkUrl(e.num)) + '" alt="" ' +
+        '<img class="suggest-img" src="' + escapeHtml(artworkUrl(e.artId)) + '" alt="" ' +
           'loading="lazy" width="34" height="34" onerror="this.style.visibility=\'hidden\'">' +
         '<span class="suggest-text">' +
           '<span class="suggest-name">' + escapeHtml(e.frName) + '</span>' +
@@ -313,7 +352,7 @@
       if (!s) return;   // Pokémon absent de ce jeu : on ne peut rien en dire
       membres.push({
         slug: slug,
-        frName: frenchName(slug),
+        frName: nomAffichable(slug),
         types: s.t,
         bst: s.s.reduce(function (a, b) { return a + b; }, 0),
         tier: s.r
@@ -341,6 +380,7 @@
         body.innerHTML =
           '<div class="dex-detail">' +
             ui.monCard(record, { showStats: true, showAbilities: true }) +
+            ui.formPickerHtml(record) +
             (record.existsInGame === false
               ? '<p class="dex-warning">Ce Pokémon n’apparaît pas dans le jeu sélectionné.</p>'
               : '') +
@@ -354,6 +394,7 @@
               ui.evolutionHtml(record, evo) +
             '</div>' +
           '</div>';
+        ui.wireFormPicker(body, function (formSlug) { openDetail(formSlug); });
       },
       function (err) {
         body.innerHTML = '<p class="dex-warning">Fiche indisponible : ' +

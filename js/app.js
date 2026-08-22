@@ -265,7 +265,13 @@
       wireSuggestionLinks(content, index);
       return;
     }
-    content.innerHTML = ui.monCard(slot.record, { showStats: true });
+    content.innerHTML = ui.monCard(slot.record, { showStats: true }) +
+      ui.formPickerHtml(slot.record);
+    ui.wireFormPicker(content, function (_slug, label) {
+      var input = wrapper.querySelector('.slot-input');
+      input.value = label;
+      setSlotInput(index, label);
+    });
   }
 
   function renderSuggestionLinks(suggestions, index) {
@@ -449,7 +455,13 @@
         if (candidate.token !== token) return;
         candidate.record = record;
         candidate.status = 'ok';
-        elCandidateCard.innerHTML = ui.monCard(record, { showStats: true, showAbilities: true });
+        elCandidateCard.innerHTML =
+          ui.monCard(record, { showStats: true, showAbilities: true }) +
+          ui.formPickerHtml(record);
+        ui.wireFormPicker(elCandidateCard, function (_slug, label) {
+          elCandidateInput.value = label;
+          loadCandidate(label);
+        });
         runAnalysis();
       },
       function (err) {

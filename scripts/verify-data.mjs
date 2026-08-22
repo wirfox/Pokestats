@@ -201,6 +201,65 @@ async function verifyNames() {
 
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* 3. Libellés de formes                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Chaque forme proposée au joueur doit désigner quelque chose de réel, et
+ * porter le libellé français que PokéAPI lui donne. Un libellé inventé ferait
+ * choisir « Lougaroc Nocturne » à quelqu'un qui possède un Diurne — et
+ * l'analyse porterait alors sur 30 points de Vitesse en trop.
+ */
+async function verifyForms() {
+  await import(join(DATA, 'forms.js'));
+  const table = globalThis.POKESTATS_FORMS;
+  const rows = [];
+  for (const espece of Object.keys(table.species)) {
+    for (const forme of table.species[espece]) rows.push({ espece, forme });
+  }
+
+  process.stderr.write(`Vérification de ${rows.length} libellés de formes…\n`);
+
+  const problems = [];
+  await mapLimit(rows, CONCURRENCY, async ({ espece, forme }) => {
+    /* L'identifiant d'espèce nu désigne la forme par défaut : PokéAPI ne
+     * connaît pas de forme « lycanroc », seulement « lycanroc-midday ». */
+    const doc = (await getJson(`${BASE}/pokemon-form/${forme.s}`)) ||
+                (await getJson(`${BASE}/pokemon-species/${forme.s}`));
+    if (!doc) {
+      problems.push({
+        message: `« ${forme.s} » (${espece}) n'existe pas dans PokéAPI.`
+      });
+      return;
+    }
+    if (!doc.form_names) return;   // entrée d'espèce : pas de libellé à comparer
+
+    const officiel = (doc.form_names || [])
+      .concat(doc.names || [])
+      .filter((n) => n.language && n.language.name === 'fr')
+      .map((n) => n.name);
+    if (!officiel.length) return;  // PokéAPI n'a pas de libellé français
+
+    /* Le libellé n'est pas forcément identique au nom court de PokéAPI :
+     *   - complété par le nom entier quand deux formes le partageaient
+     *     (« Forme de Paldéa » → « Tauros de Paldéa Race Combative ») ;
+     *   - allégé du nom d'espèce quand seul le nom entier existait
+     *     (« Argouste Dominant » → « Dominant »).
+     * On vérifie donc que l'un contient l'autre, pas l'égalité stricte : ce
+     * qui compte est qu'aucun mot n'ait été inventé. */
+    const attendu = officiel.some((n) =>
+      normalize(forme.l).includes(normalize(n)) || normalize(n).includes(normalize(forme.l)));
+    if (!attendu) {
+      problems.push({
+        message: `« ${forme.s} » : libellé « ${forme.l} », PokéAPI dit « ${officiel.join(' / ')} ».`
+      });
+    }
+  });
+
+  return { checked: rows.length, problems };
+}
+
 function report(title, result) {
   console.log(`\n${title}`);
   console.log('-'.repeat(title.length));
@@ -212,14 +271,17 @@ function report(title, result) {
 
 async function main() {
   const args = new Set(process.argv.slice(2));
-  const wantNames = args.has('--names') || (!args.has('--tiers'));
-  const wantTiers = args.has('--tiers') || (!args.has('--names'));
+  const cible = args.has('--names') || args.has('--tiers') || args.has('--forms');
+  const wantNames = args.has('--names') || !cible;
+  const wantTiers = args.has('--tiers') || !cible;
+  const wantForms = args.has('--forms') || !cible;
   const asJson = args.has('--json');
 
   const out = {};
   try {
     if (wantTiers) out.tiers = await verifyTiers();
     if (wantNames) out.names = await verifyNames();
+    if (wantForms) out.forms = await verifyForms();
   } catch (err) {
     console.error(`\n✖ Vérification impossible : ${err.message}`);
     console.error('  PokéAPI doit être joignable pour auditer ces fichiers.\n');
@@ -232,6 +294,7 @@ async function main() {
   } else {
     if (out.tiers) report('Identifiants de data/tiers.js', out.tiers);
     if (out.names) report('Noms français de data/names-fr.js', out.names);
+    if (out.forms) report('Libellés de formes de data/forms.js', out.forms);
     console.log(
       '\nRappel : ce script ne peut PAS vérifier les TIERS eux-mêmes — PokéAPI\n' +
       'n\'expose pas cette notion. Leur source est @pkmn/dex, dont la version\n' +

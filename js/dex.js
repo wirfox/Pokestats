@@ -148,6 +148,10 @@
       enName: speciesDoc
         ? localizedName(speciesDoc.names, 'en', pokemonDoc.name)
         : pokemonDoc.name,
+      /* Nom complet, complété par `attachFormName` quand la forme en a un. */
+      frFullName: speciesDoc
+        ? localizedName(speciesDoc.names, 'fr', pokemonDoc.name)
+        : pokemonDoc.name,
       /* Suffixe de forme (ex : "midday") pour distinguer Lougaroc Diurne. */
       formSuffix: (function () {
         var sp = speciesDoc ? speciesDoc.name : '';
@@ -307,6 +311,10 @@
         var fromFormNames = localizedName(formDoc.form_names, 'fr', null);
         var fromNames = localizedName(formDoc.names, 'fr', null);
         record.frFormName = fromFormNames || fromNames || null;
+        /* Nom complet, forme comprise. Sans lui, un conseil du type « prends
+         * Lougaroc à la place de X » ne dirait pas LEQUEL des trois Lougaroc,
+         * alors que c'est justement ce qui change tout. */
+        if (record.frFormName) record.frFullName = record.frName + ' ' + record.frFormName;
         return record;
       },
       function () {

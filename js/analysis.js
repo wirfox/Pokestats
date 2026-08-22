@@ -260,6 +260,16 @@
   };
 
   /**
+   * Nom à afficher dans un conseil, forme comprise.
+   *
+   * « Prends Lougaroc à la place de Carchacrok » serait ambigu : il existe
+   * trois Lougaroc, et ils ne se valent pas. Le nom complet lève le doute.
+   */
+  function nameOf(record) {
+    return (record && (record.frFullName || record.frName)) || '';
+  }
+
+  /**
    * Déduit le rôle d'un Pokémon de ses seules stats de base.
    *
    * Les règles sont volontairement ordonnées et chiffrées, donc reproductibles
@@ -406,7 +416,7 @@
         code: 'tier-inconnu',
         text:
           'Tier inconnu pour ' +
-          (!tc.known ? candidate.frName : member.frName) +
+          (!tc.known ? nameOf(candidate) : nameOf(member)) +
           ' : sans donnée de viabilité fiable, aucun remplacement n’est proposé.'
       });
     }
@@ -415,7 +425,7 @@
       blockers.push({
         code: 'non-evolue',
         text:
-          'En l’état, ' + candidate.frName + ' est encore une forme non évoluée : ' +
+          'En l’état, ' + nameOf(candidate) + ' est encore une forme non évoluée : ' +
           'c’est son évolution qu’il faut comparer (voir plus bas), pas ses stats actuelles.'
       });
     }
@@ -424,7 +434,7 @@
       blockers.push({
         code: 'tier-inferieur',
         text:
-          'Tier ' + tc.tier + ' contre ' + tm.tier + ' pour ' + member.frName +
+          'Tier ' + tc.tier + ' contre ' + tm.tier + ' pour ' + nameOf(member) +
           ' : le candidat est classé en dessous.'
       });
     }
@@ -470,7 +480,7 @@
       blockers.push({
         code: 'aucune-stab',
         text:
-          candidate.frName + ' n’apprend aucune capacité offensive de son type ' +
+          nameOf(candidate) + ' n’apprend aucune capacité offensive de son type ' +
           'dans sa catégorie dominante : ses statistiques d’attaque sont ' +
           'inexploitables.'
       });
@@ -490,7 +500,7 @@
         text:
           'Rendement offensif nettement inférieur : ' +
           Math.round((outputC / outputM) * 100) + ' % de celui de ' +
-          member.frName + ' (puissance STAB ' + mc.stabPower + ' contre ' +
+          nameOf(member) + ' (puissance STAB ' + mc.stabPower + ' contre ' +
           mm.stabPower + ', couverture ' + mc.coverage + ' contre ' +
           mm.coverage + ' types). L’avantage de statistiques ne compense pas ' +
           'ce déficit.'
@@ -533,7 +543,7 @@
         text:
           'Couverture offensive supérieure : frappe ' + mc.coverage +
           ' types au moins ×2, contre ' + mm.coverage + ' pour ' +
-          member.frName + '.'
+          nameOf(member) + '.'
       });
     }
 
@@ -901,9 +911,9 @@
    *             'a-tester', 'non-recommande', 'indetermine'}
    */
   function buildHeadline(ctx) {
-    var name = ctx.candidate.frName;
+    var name = nameOf(ctx.candidate);
     var evo = ctx.evolution;
-    var evoName = evo.available ? evo.best.frName : null;
+    var evoName = evo.available ? nameOf(evo.best) : null;
 
     /* Équipe vide : rien à comparer. */
     if (!ctx.team.length) {
@@ -938,10 +948,10 @@
       var mNow = cibleEvoluee.memberNow || m; // membre tel qu'il est aujourd'hui
       if (!cibleEvoluee.memberWillEvolve) {
         return ' ' + evoName + ' (BST ' + cibleEvoluee.candidate.bst + ') dépasse ' +
-          mNow.frName + ' (BST ' + m.bst + ').';
+          nameOf(mNow) + ' (BST ' + m.bst + ').';
       }
-      return ' Comparaison faite à armes égales : ' + mNow.frName + ' deviendra ' +
-        m.frName + ' (BST ' + m.bst + '), et ' + evoName + ' (BST ' +
+      return ' Comparaison faite à armes égales : ' + nameOf(mNow) + ' deviendra ' +
+        nameOf(m) + ' (BST ' + m.bst + '), et ' + evoName + ' (BST ' +
         cibleEvoluee.candidate.bst + ') le dépasse malgré tout.';
     }
 
@@ -970,7 +980,7 @@
           text:
             'Tu as une place libre, et ' +
             (outclassesEvolved
-              ? 'une fois évolué, il dépassera ' + outclassesEvolved.frName + '.' +
+              ? 'une fois évolué, il dépassera ' + nameOf(outclassesEvolved) + '.' +
                 comparaisonATerme()
               : 'son évolution ' + evoName +
                 (evo.tier.known ? ' (tier ' + evo.tier.tier + ')' : '') +
@@ -989,7 +999,7 @@
           (ctx.candidateTier.known ? ' (tier ' + ctx.candidateTier.tier + ')' : '') +
           ' dans un emplacement vacant.' +
           (outclasses
-            ? ' À noter : il dépasse aussi ' + outclasses.frName +
+            ? ' À noter : il dépasse aussi ' + nameOf(outclasses) +
               ', que tu pourras écarter plus tard si tu manques de place.'
             : ''),
         target: outclasses
@@ -1001,10 +1011,10 @@
       return {
         status: 'remplacer',
         title:
-          name + ' est objectivement plus fort que ' + outclasses.frName +
+          name + ' est objectivement plus fort que ' + nameOf(outclasses) +
           ' dans ton équipe.',
         text:
-          'Le remplacement de ' + outclasses.frName + ' par ' + name +
+          'Le remplacement de ' + nameOf(outclasses) + ' par ' + name +
           ' est recommandé : les critères de supériorité sont réunis et vérifiés.',
         target: outclasses
       };
@@ -1017,12 +1027,12 @@
       return {
         status: 'investir',
         title:
-          'Prends ' + name + ' à la place de ' + outclassesEvolved.frName +
+          'Prends ' + name + ' à la place de ' + nameOf(outclassesEvolved) +
           ' : une fois évolué en ' + evoName + ', il sera supérieur.',
         text:
           'En l’état, ' + name + ' est plus faible — mais c’est sa forme finale ' +
           'qui compte, et elle remplit tous les critères face à ' +
-          outclassesEvolved.frName + '.' +
+          nameOf(outclassesEvolved) + '.' +
           comparaisonATerme() +
           investmentNote('Rappel :'),
         target: outclassesEvolved
@@ -1057,7 +1067,7 @@
         title:
           name + ' est intéressant, mais pas clairement meilleur que ton équipe actuelle.',
         text:
-          'À tester en combat face à ' + testable.member.frName +
+          'À tester en combat face à ' + nameOf(testable.member) +
           (viaEvolution ? ' une fois évolué en ' + evoName : '') +
           ', mais les données ne suffisent pas à affirmer qu’il est objectivement ' +
           'supérieur. Pas de changement recommandé.',
@@ -1074,7 +1084,7 @@
        * du refus, et l'utilisateur doit pouvoir le vérifier. */
       var membresQuiEvoluent = (ctx.evolutionComparisons || [])
         .filter(function (c) { return c.memberWillEvolve; })
-        .map(function (c) { return (c.memberNow || c.member).frName + ' → ' + c.member.frName; });
+        .map(function (c) { return nameOf(c.memberNow || c.member) + ' → ' + nameOf(c.member); });
 
       reason =
         'Même une fois évolué en ' + evoName +

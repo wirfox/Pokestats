@@ -39,7 +39,7 @@
  * Aucune de ces commandes n'a besoin du réseau une fois `npm install` fait.
  */
 
-import { writeFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -95,7 +95,7 @@ export function toPokeApiSlug(name) {
     .replace(/\u00e6/g, 'ae')
     .replace(/\u2640/g, '-f')
     .replace(/\u2642/g, '-m')
-    .replace(/['’.:]/g, '')
+    .replace(/['’.:%]/g, '')
     .replace(/[\s_]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
@@ -148,7 +148,9 @@ const FORME_CANDIDATES = [
   (slug) => `${slug}-breed`,                             // Tauros-Paldea-Combat
   (slug) => slug.replace(/-(mane|wings)$/, ''),          // Necrozma-Dusk-Mane
   (slug) => slug.replace(/-four$/, '-family-of-four'),   // Maushold-Four
-  (slug) => slug.replace(/-three$/, '-family-of-three')
+  (slug) => slug.replace(/-three$/, '-family-of-three'),
+  (slug) => `${slug}-standard`,                          // Darmanitan-Galar
+  (slug) => `${slug}-plumage`                            // Squawkabilly-Blue
 ];
 
 /** Premier candidat réellement présent dans PokéAPI, sinon `null`. */
@@ -1398,6 +1400,236 @@ async function buildPokedexes() {
 }
 
 /* ================================================================== */
+/* Formes jouables                                                     */
+/* ================================================================== */
+
+/**
+ * Espèces à formes multiples, avec le libellé français OFFICIEL de chaque
+ * forme.
+ *
+ * Le joueur qui a capturé un Lougaroc en a capturé UN des trois : Diurne,
+ * Nocturne ou Crépusculaire. Ces trois formes n'ont ni les mêmes statistiques
+ * (115/112, 115/82, 117/110 en Attaque/Vitesse) ni le même tier. Analyser
+ * « Lougaroc » sans savoir laquelle est dans l'équipe revient à deviner — et
+ * ce moteur ne devine jamais.
+ *
+ * Deux garde-fous :
+ *
+ *   1. Les formes de COMBAT (`is_battle_only`) sont écartées. Superdofin
+ *      Forme Super, Exagide Forme Assaut, Darumacho Mode Transe… n'existent
+ *      que le temps d'un affrontement : on ne peut pas « avoir » ce Pokémon
+ *      sous cette forme, la proposer au choix serait un contresens.
+ *   2. Les libellés viennent de PokéAPI (`pokemon-form`, langue « fr »), pas
+ *      d'une traduction maison. Quand deux formes partagent le même libellé
+ *      court — les trois Tauros de Paldéa s'appellent toutes « Forme de
+ *      Paldéa » —, on retombe sur le nom complet, seul à les distinguer.
+ */
+async function fetchSpeciesVarieties() {
+  const page = (limit, offset) => `query {
+    pokemonspecies(limit: ${limit}, offset: ${offset}, order_by: {id: asc}) {
+      id name
+      pokemons(order_by: {order: asc}) {
+        id name is_default
+        pokemonforms(order_by: {form_order: asc}) {
+          name form_name is_battle_only
+          pokemonformnames(where: {language: {name: {_eq: "fr"}}}) { name pokemon_name }
+        }
+      }
+    }
+  }`;
+
+  const rows = [];
+  for (let offset = 0; ; offset += 200) {
+    const res = await fetch(POKEAPI_GRAPHQL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: page(200, offset) })
+    });
+    if (!res.ok) throw new Error(`GraphQL PokéAPI → HTTP ${res.status}`);
+    const payload = await res.json();
+    if (payload.errors) throw new Error('GraphQL PokéAPI a renvoyé une erreur');
+    const batch = payload.data?.pokemonspecies || [];
+    rows.push(...batch);
+    if (batch.length < 200) break;
+  }
+  if (!rows.length) throw new Error('GraphQL PokéAPI : réponse vide');
+  return rows;
+}
+
+/**
+ * Reconstruit l'espace d'identifiants de l'application, génération par
+ * génération — exactement la même règle que `buildGenerations`, sans le coût
+ * des capacités. Une forme absente des données de jeu ne doit pas être
+ * proposée au choix.
+ */
+function slugSpaceByGeneration(formes, especes, enByNum) {
+  const gens = new Map();   // slug → { num, generations: [] }
+  for (const generation of GENERATIONS) {
+    const dex = Dex.forGen(generation);
+    for (const s of dex.species.all()) {
+      if (s.num <= 0) continue;
+      if (s.isNonstandard === 'Future' || s.gen > generation) continue;
+      if (String(s.tier || '').startsWith('CAP')) continue;
+      const slug = s.forme
+        ? resolveFormeSlug(s.name, formes)
+        : toPokeApiSlug(enByNum.get(s.num) || s.name);
+      if (!slug || (!formes.has(slug) && !especes.has(slug))) continue;
+      if (!formeDisponible(slug, generation)) continue;
+      if (!gens.has(slug)) gens.set(slug, { num: s.num, generations: [] });
+      gens.get(slug).generations.push(generation);
+    }
+  }
+  return gens;
+}
+
+async function buildForms() {
+  const { formes, especes } = await fetchReferences();
+  const enByNum = new Map();
+  for (let i = 0; i < EN_NAMES.length; i++) enByNum.set(i + 1, EN_NAMES[i]);
+
+  console.log('  → variétés et libellés de formes depuis PokéAPI…');
+  const varieties = await fetchSpeciesVarieties();
+  const speciesByNum = new Map(varieties.map((s) => [s.id, s]));
+
+  /* Noms français des espèces, pour alléger les libellés de repli :
+   * « Tauros de Paldéa Race Combative » → « de Paldéa Race Combative ». */
+  const frBySlug = new Map();
+  {
+    const seed = JSON.parse(await readFile(join(DATA, 'names-fr.json'), 'utf8')).seed || {};
+    for (const [fr, slug] of Object.entries(seed)) if (!frBySlug.has(slug)) frBySlug.set(slug, fr);
+  }
+
+  const slugs = slugSpaceByGeneration(formes, especes, enByNum);
+
+  /* Regroupement par numéro national : toutes les formes d'une espèce le
+   * partagent, c'est la seule clé fiable pour les réunir. */
+  const groupes = new Map();
+  for (const [slug, info] of slugs) {
+    if (!groupes.has(info.num)) groupes.set(info.num, []);
+    groupes.get(info.num).push({ slug, generations: info.generations });
+  }
+
+  const species = {};
+  const bySlug = {};
+  const sansLibelle = [];
+  let formesRetenues = 0;
+
+  for (const [num, membres] of [...groupes].sort((a, b) => a[0] - b[0])) {
+    if (membres.length < 2) continue;
+    const sp = speciesByNum.get(num);
+    if (!sp) continue;
+
+    /* Identifiant d'espèce de l'application : celui qui porte le nom nu. */
+    const base = membres.some((m) => m.slug === sp.name)
+      ? sp.name
+      : membres.slice().sort((a, b) => a.slug.length - b.slug.length)[0].slug;
+
+    /* Forme de combat PokéAPI visée par chaque identifiant de l'application.
+     * L'identifiant d'espèce nu (« urshifu ») désigne la variété par défaut. */
+    const cible = (slug) =>
+      sp.pokemons.find((p) => p.name === slug) ||
+      (slug === base ? sp.pokemons.find((p) => p.is_default) : null);
+
+    const retenues = [];
+    const vues = new Set();
+    for (const membre of membres) {
+      const pokemon = cible(membre.slug);
+      if (!pokemon) continue;
+      /* Deux identifiants pointant la même forme (« maushold » et
+       * « maushold-family-of-four ») : on n'en garde qu'un. */
+      if (vues.has(pokemon.name)) continue;
+      const forme = pokemon.pokemonforms.find((f) => !f.is_battle_only);
+      if (!forme) continue;               // forme de combat uniquement
+      /* Même exclusion que js/dex.js : Méga, Gigamax, Dominant, Partenaire…
+       * ne sont pas des formes qu'on « possède », et les proposer au choix
+       * contredirait le reste de l'application, qui les écarte partout. */
+      if (/-(mega|gmax|totem|primal|eternamax|starter)(-|$)/.test(membre.slug)) continue;
+      vues.add(pokemon.name);
+      const fr = forme.pokemonformnames?.[0] || null;
+      retenues.push({
+        slug: membre.slug,
+        pokemonId: pokemon.id,
+        generations: membre.generations,
+        court: fr?.name || null,
+        complet: fr?.pokemon_name || null,
+        estBase: membre.slug === base
+      });
+    }
+    if (retenues.length < 2) continue;
+
+    /* Libellé : le nom court officiel, sauf s'il ne distingue pas deux formes
+     * de la même espèce — auquel cas le nom complet, allégé du nom d'espèce. */
+    const occurrences = new Map();
+    retenues.forEach((f) => {
+      if (f.court) occurrences.set(f.court, (occurrences.get(f.court) || 0) + 1);
+    });
+    const nomEspece = frBySlug.get(sp.name) || '';
+    const alleger = (complet) => {
+      if (!nomEspece) return complet;
+      const sansEspece = complet
+        .replace(new RegExp('^' + nomEspece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i'), '')
+        .trim();
+      /* « Tauros de Paldéa Race Combative » privé de « Tauros » donnerait
+       * « de Paldéa Race Combative » : on garde alors le nom complet, plus
+       * lisible qu'un libellé commençant par une préposition. */
+      if (!sansEspece || !/^[A-ZÀ-ÖØ-Þ0-9]/.test(sansEspece)) return complet;
+      return sansEspece;
+    };
+
+    species[sp.name] = retenues.map((f) => {
+      let libelle = f.court;
+      if (libelle && occurrences.get(libelle) > 1 && f.complet) libelle = alleger(f.complet);
+      if (!libelle && f.complet) libelle = alleger(f.complet);
+      if (!libelle) libelle = f.estBase ? 'Forme normale' : null;
+      if (!libelle) sansLibelle.push(f.slug);
+      bySlug[f.slug] = sp.name;
+      formesRetenues += 1;
+      return { s: f.slug, l: libelle || f.slug, g: f.generations, i: f.pokemonId };
+    });
+  }
+
+  const meta = {
+    provenance: 'vérifié — généré depuis PokéAPI (pokemon-form, langue « fr »)',
+    source: 'PokéAPI GraphQL /v1beta2 — pokemonform + pokemonformname (fr), ' +
+            `espace d'identifiants @pkmn/dex@${VERSIONS['@pkmn/dex']}`,
+    generatedAt: new Date().toISOString().slice(0, 10),
+    regenerate: 'npm run build:forms',
+    speciesCount: Object.keys(species).length,
+    formCount: formesRetenues,
+    note: 'Les formes de combat (is_battle_only) et les transformations ' +
+          '(Méga, Gigamax, Dominant, Partenaire…) sont exclues : on ne peut ' +
+          'pas capturer un Pokémon sous ces formes-là.'
+  };
+
+  const js = `/*
+ * data/forms.js — Formes jouables des espèces qui en ont plusieurs.
+ * GÉNÉRÉ AUTOMATIQUEMENT — ne pas éditer à la main.
+ *   Source    : PokéAPI (pokemon-form, libellés français officiels)
+ *   Régénérer : npm run build:forms
+ *   ${Object.keys(species).length} espèces · ${formesRetenues} formes
+ *
+ * species["<espèce>"] = [{ s: identifiant, l: libellé fr, g: [générations],
+ *                            i: identifiant numérique PokéAPI (image) }]
+ * bySlug["<forme>"]   = "<espèce>"
+ */
+(function (root) {
+  'use strict';
+  root.POKESTATS_FORMS = {
+    meta: ${JSON.stringify(meta, null, 2).split('\n').join('\n    ')},
+    species: ${JSON.stringify(species)},
+    bySlug: ${JSON.stringify(bySlug)}
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+  await writeFile(join(DATA, 'forms.js'), js, 'utf8');
+  const ko = (Buffer.byteLength(js) / 1024).toFixed(0);
+  console.log(`✔ data/forms.js         ${Object.keys(species).length} espèces · ${formesRetenues} formes · ${ko} Ko`);
+  if (sansLibelle.length) {
+    console.log(`  ! ${sansLibelle.length} formes sans libellé français : ${sansLibelle.slice(0, 12).join(', ')}`);
+  }
+}
+
+/* ================================================================== */
 /* Auto-test (aucune dépendance réseau)                                */
 /* ================================================================== */
 
@@ -1459,7 +1691,7 @@ async function main() {
 
   if (!args.size) {
     console.log(
-      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--gens] [--games] [--pokedex] [--self-test]'
+      'Usage : node scripts/build-data.mjs [--all] [--names] [--tiers] [--types] [--moves] [--gens] [--games] [--pokedex] [--forms] [--self-test]'
     );
     return;
   }
@@ -1472,6 +1704,7 @@ async function main() {
   if (all || args.has('--gens')) await buildGenerations();
   if (all || args.has('--games')) await buildGames();
   if (all || args.has('--pokedex')) await buildPokedexes();
+  if (all || args.has('--forms')) await buildForms();
 }
 
 main().catch((err) => { console.error(err); process.exitCode = 1; });

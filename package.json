@@ -17,6 +17,7 @@
     "build:gens": "node scripts/build-data.mjs --gens",
     "build:games": "node scripts/build-data.mjs --games",
     "build:pokedex": "node scripts/build-data.mjs --pokedex",
+    "build:forms": "node scripts/build-data.mjs --forms",
     "test:mobile": "node test/mobile.test.mjs"
   },
   "keywords": [

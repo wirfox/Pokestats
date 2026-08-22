@@ -319,6 +319,35 @@ Spé.) frappe aussi fort que Flâmigator (117 de puissance, 110 d'Att. Spé.).
 > apprendre**, pas les capacités qu'il porte réellement. Un Carchacrok mal
 > configuré reste un Carchacrok mal configuré.
 
+### Formes multiples
+
+Lougaroc n'est pas un Pokémon, c'en est trois : Diurne (115 Att / 112 Vit),
+Nocturne (115 / 82) et Crépusculaire (117 / 110, tier B contre D pour les deux
+autres). Analyser « Lougaroc » sans savoir lequel le joueur possède reviendrait
+à deviner.
+
+[`data/forms.js`](data/forms.js) répertorie les 93 espèces à formes multiples et
+leurs 222 formes, avec le libellé français **officiel** de chacune, extrait de
+PokéAPI (`pokemon-form`, langue `fr`). Aucune traduction maison.
+
+Deux exclusions, pour ne proposer que des formes qu'on peut réellement
+posséder :
+
+| Écartées | Pourquoi |
+| --- | --- |
+| Formes de combat (`is_battle_only`) | Superdofin Forme Super, Exagide Forme Assaut, Darumacho Mode Transe… n'existent que le temps d'un affrontement. |
+| Transformations | Méga, Gigamax, Dominant, Partenaire — déjà écartées partout ailleurs dans l'application. |
+
+Le sélecteur n'apparaît que si l'espèce a au moins deux formes **dans le jeu
+choisi** : un Tauros de Paldéa n'est pas proposé à un joueur de Rouge Feu.
+Quand deux formes partagent le même libellé court — les trois Tauros de Paldéa
+s'appellent toutes « Forme de Paldéa » —, c'est le nom complet qui est retenu,
+seul à les distinguer.
+
+Choisir une forme change l'identifiant analysé : statistiques, types, tier,
+capacités et rôle sont alors ceux de cette forme précise, et les conseils la
+nomment (« Lougaroc Forme Crépusculaire », pas « Lougaroc »).
+
 ### Table d'efficacité des types
 
 Construite en priorité depuis PokéAPI (`/type/{nom}` → `damage_relations`).
@@ -443,7 +472,8 @@ faible reste un refus.
 ```bash
 npm run build:tiers     # table de viabilité, depuis Pokémon Showdown / Smogon
 npm run build:names     # index des noms français, depuis PokéAPI
-npm run build:data      # les deux
+npm run build:forms     # formes multiples et leurs libellés français
+npm run build:data      # tout
 npm run export:json     # exporte les .js en .json (hors ligne, sans réseau)
 node scripts/build-data.mjs --self-test   # vérifie la logique sans réseau
 ```
@@ -476,14 +506,15 @@ En cas d'échec réseau, les scripts n'écrasent rien et expliquent le problème
 Ne me crois pas sur parole — confronte les fichiers à PokéAPI :
 
 ```bash
-npm run verify:data                     # tout (~1866 requêtes, quelques minutes)
+npm run verify:data                     # tout (~2100 requêtes, quelques minutes)
 node scripts/verify-data.mjs --names    # noms français uniquement
 node scripts/verify-data.mjs --tiers    # identifiants uniquement
 node scripts/verify-data.mjs --json     # sortie machine
 ```
 
-Le script signale, entrée par entrée, tout identifiant inconnu de PokéAPI et
-tout nom français divergent du nom officiel. Code de sortie `1` s'il trouve un
+Le script signale, entrée par entrée, tout identifiant inconnu de PokéAPI, tout
+nom français divergent du nom officiel, et tout libellé de forme qui ne
+correspond pas à celui que PokéAPI donne. Code de sortie `1` s'il trouve un
 écart, `2` si PokéAPI est injoignable.
 
 > **Derrière un proxy ?** `fetch` de Node ignore `HTTPS_PROXY` par défaut, ce
@@ -498,7 +529,7 @@ tout nom français divergent du nom officiel. Code de sortie `1` s'il trouve un
 
 ### Récapitulatif de fiabilité
 
-Dernier audit : **1866 entrées vérifiées contre PokéAPI, 0 écart.**
+Dernier audit : **2088 entrées vérifiées contre PokéAPI, 0 écart.**
 
 | Donnée | Provenance | Vérifié | Écarts |
 | --- | --- | --- | --- |
@@ -507,6 +538,7 @@ Dernier audit : **1866 entrées vérifiées contre PokéAPI, 0 écart.**
 | Identifiants de tiers (841) | `@pkmn/dex@0.10.11`, filtrés sur PokéAPI | 841 | **0** |
 | Table d'efficacité des types | PokéAPI, repli `@pkmn/dex@0.10.11` | 18 types | — |
 | Capacités (841 Pokémon, 174 capacités) | `@pkmn/dex@0.10.11` + PokéAPI | 174 noms FR | **0** |
+| Libellés de formes (222) | PokéAPI `pokemon-form`, langue `fr` | 222 | **0** |
 | Second avis Game8 (98) | Game8, apparié sur PokéAPI | 98 | **0** non résolu |
 | Images des Pokémon | PokéAPI (artwork officiel 475×475) | testé en navigateur | — |
 
@@ -528,7 +560,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-50 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+69 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -552,6 +584,17 @@ Une section entière couvre le **potentiel d'évolution** :
   « à intégrer » ne sort sans un verdict « remplacer » démontré sur la forme
   finale.
 
+Une autre couvre les **formes multiples** :
+
+- toute forme proposée existe réellement dans les données de la génération ;
+- deux formes d'une même espèce ne portent jamais le même libellé — sans quoi
+  le joueur choisirait au hasard entre trois « Forme de Paldéa » ;
+- les formes de combat et les transformations ne sont jamais proposées ;
+- le libellé écrit par le sélecteur se relit : « Lougaroc Forme Crépusculaire »
+  redonne bien `lycanroc-dusk` ;
+- les trois Lougaroc ont bien des statistiques distinctes — c'est la raison
+  d'être du sélecteur.
+
 S'y ajoutent le cas d'usage du cahier des charges (Rocabot → Lougaroc), les cas
 positifs (l'outil doit aussi savoir dire oui), la détection des rôles, la table
 des types et l'intégrité des données embarquées.
@@ -567,21 +610,34 @@ style.css               Styles (responsive, thème sombre)
 js/
   api.js                Accès PokéAPI : requêtes, cache, erreurs typées
   names.js              Résolution des noms FR/EN, autocomplétion, suggestions
+  forms.js              Formes multiples d'une même espèce
   types.js              Table d'efficacité des types (construite depuis PokéAPI)
   dex.js                Fiche Pokémon normalisée + chaîne d'évolution
   analysis.js           ★ Moteur de comparaison et de recommandation
+  gamestate.js          Jeu sélectionné et données de sa génération
+  gamebar.js            Sélecteur de jeu
+  teams.js              Onglets d'équipes, mémorisés dans le navigateur
   ui.js                 Rendu HTML (aucune décision)
   app.js                État de l'équipe et branchement de l'interface
+  pokedex-page.js       Page Pokédex
+  typechart-page.js     Page comparateur de types
 
 data/
   tiers.js / .json      Table de viabilité (tier + confiance)
   names-fr.js / .json   Index de secours des noms français
+  forms.js              Formes jouables et leurs libellés français
+  type-chart.js         Table des types (repli hors ligne)
+  moves.js              Capacités offensives par Pokémon
+  games.js              Jeux couverts et leurs pokédex
+  pokedex.js            Contenu des pokédex régionaux
+  gen/gen1..9.js        Données propres à chaque génération
 
 scripts/
   build-data.mjs        Régénération des données depuis des sources structurées
 
 test/
   engine.test.js        Tests du moteur
+  mobile.test.mjs       Aucune page ne déborde horizontalement
   type-chart.fixture.js Table des types figée, pour des tests hors réseau
 ```
 

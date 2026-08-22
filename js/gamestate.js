@@ -202,8 +202,15 @@
 
   var membershipCache = { gameId: null, set: null };
 
-  /** Ce Pokémon figure-t-il dans le jeu courant ? */
-  function isInGame(speciesSlug) {
+  /**
+   * Ce Pokémon figure-t-il dans le jeu courant ?
+   *
+   * Le pokédex régional ne liste que des ESPÈCES. Un identifiant de forme
+   * (« lycanroc-dusk ») n'y figure donc jamais : on le ramène d'abord à son
+   * espèce, sans quoi les formes disparaîtraient de l'autocomplétion alors
+   * qu'elles sont bien présentes dans le jeu.
+   */
+  function isInGame(slug) {
     var game = current();
     if (!game) return false;
     if (membershipCache.gameId !== game.id) {
@@ -211,7 +218,16 @@
       dexSpecies().forEach(function (s) { set[s] = true; });
       membershipCache = { gameId: game.id, set: set };
     }
-    return !!membershipCache.set[speciesSlug];
+    if (membershipCache.set[slug]) return true;
+
+    var forms = PokeStats.forms;
+    var espece = forms && forms.speciesOf(slug);
+    if (!espece || espece === slug) return false;
+    /* La forme doit aussi exister à cette génération : un Tauros de Paldéa
+     * n'est pas capturable dans un jeu de 1G, même si Tauros l'est. */
+    var data = genData();
+    if (data && data.species && !data.species[slug]) return false;
+    return !!membershipCache.set[espece];
   }
 
   PokeStats.game = {

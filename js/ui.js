@@ -247,6 +247,62 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Choix de la forme                                                   */
+  /* ------------------------------------------------------------------ */
+
+  var pickerSeq = 0;
+
+  /**
+   * Sélecteur de forme, affiché uniquement quand l'espèce en a plusieurs dans
+   * le jeu choisi.
+   *
+   * Sans lui, un joueur qui possède un Lougaroc Nocturne verrait l'analyse
+   * d'un Lougaroc Diurne : 82 de Vitesse contre 112, et un rôle différent.
+   * Le sélecteur ne calcule rien — il change l'identifiant analysé, et tout
+   * le reste est recalculé à partir des vraies données de cette forme.
+   *
+   * @param {Object} record fiche actuellement affichée
+   * @returns {string} HTML, ou chaîne vide s'il n'y a pas de choix à faire
+   */
+  function formPickerHtml(record) {
+    var forms = PokeStats.forms;
+    if (!forms || !record) return '';
+
+    var current = forms.currentSlug(record);
+    var options = forms.optionsFor(current || record.speciesSlug || record.slug);
+    if (options.length < 2) return '';
+
+    var id = 'form-picker-' + (++pickerSeq);
+    return '' +
+      '<div class="form-picker">' +
+        '<label class="form-picker-label" for="' + id + '">Forme&nbsp;:</label>' +
+        '<select class="form-picker-select" id="' + id + '">' +
+          options.map(function (o) {
+            return '<option value="' + escapeHtml(o.slug) + '"' +
+              (o.slug === current ? ' selected' : '') + '>' +
+              escapeHtml(o.label) + '</option>';
+          }).join('') +
+        '</select>' +
+      '</div>';
+  }
+
+  /**
+   * Branche un sélecteur de forme rendu par `formPickerHtml`.
+   * @param {Element} container élément contenant le sélecteur
+   * @param {function(string, string): void} onChange (slug, libellé saisissable)
+   */
+  function wireFormPicker(container, onChange) {
+    if (!container) return;
+    var select = container.querySelector('.form-picker-select');
+    if (!select) return;
+    select.addEventListener('change', function () {
+      var slug = select.value;
+      var forms = PokeStats.forms;
+      onChange(slug, forms ? forms.displayName(slug) : slug);
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Faiblesses et résistances                                           */
   /* ------------------------------------------------------------------ */
 
@@ -860,6 +916,8 @@
   PokeStats.ui = {
     escapeHtml: escapeHtml,
     monCard: monCard,
+    formPickerHtml: formPickerHtml,
+    wireFormPicker: wireFormPicker,
     statsHtml: statsHtml,
     typeChips: typeChips,
     tierBadge: tierBadge,

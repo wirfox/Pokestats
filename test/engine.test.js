@@ -1141,6 +1141,159 @@ test('l’index de noms français ne contient pas deux fois le même Pokémon', 
   });
 });
 
+/* ================================================================== */
+section('9. Formes multiples — la forme exacte est analysée, pas une moyenne');
+/* ================================================================== */
+
+/*
+ * POURQUOI CES TESTS
+ * ------------------
+ * Lougaroc Diurne (115 Att / 112 Vit), Nocturne (115 / 82) et Crépusculaire
+ * (117 / 110) sont trois Pokémon différents, de tiers différents. Analyser le
+ * mauvais reviendrait à donner un conseil faux avec l'aplomb d'un conseil
+ * juste — exactement ce que ce projet refuse.
+ */
+
+function chargerFormes() {
+  require(path.join(__dirname, '..', 'data', 'forms.js'));
+  require(path.join(__dirname, '..', 'data', 'names-fr.js'));
+  require(path.join(__dirname, '..', 'js', 'names.js'));
+  require(path.join(__dirname, '..', 'js', 'forms.js'));
+  return globalThis.POKESTATS_FORMS;
+}
+
+function chargerGeneration(n) {
+  require(path.join(__dirname, '..', 'data', 'gen', 'gen' + n + '.js'));
+  return globalThis.POKESTATS_GEN[n];
+}
+
+test('data/forms.js déclare une provenance vérifiable', function () {
+  var meta = chargerFormes().meta;
+  assert.ok(/^vérifié/.test(meta.provenance), 'provenance : ' + meta.provenance);
+  assert.ok(/Pok[ée]API/i.test(meta.source), 'source : ' + meta.source);
+});
+
+test('chaque forme proposée existe vraiment dans les données de sa génération', function () {
+  var table = chargerFormes();
+  var manquantes = [];
+
+  Object.keys(table.species).forEach(function (espece) {
+    table.species[espece].forEach(function (forme) {
+      forme.g.forEach(function (generation) {
+        var data = chargerGeneration(generation);
+        if (!data.species[forme.s]) {
+          manquantes.push(forme.s + ' (G' + generation + ')');
+        }
+      });
+    });
+  });
+
+  assert.deepStrictEqual(manquantes, [],
+    'formes annoncées mais absentes des données de jeu : ' + manquantes.slice(0, 8).join(', '));
+});
+
+test('deux formes d’une même espèce ne portent jamais le même libellé', function () {
+  var table = chargerFormes();
+  var collisions = [];
+
+  Object.keys(table.species).forEach(function (espece) {
+    var vus = Object.create(null);
+    table.species[espece].forEach(function (forme) {
+      assert.ok(forme.l && forme.l !== forme.s,
+        espece + ' : forme sans libellé français (' + forme.s + ')');
+      if (vus[forme.l]) collisions.push(espece + ' : « ' + forme.l + ' »');
+      vus[forme.l] = true;
+    });
+  });
+
+  /* Sans libellé distinct, le sélecteur afficherait trois « Forme de Paldéa »
+   * indiscernables et le joueur choisirait au hasard. */
+  assert.deepStrictEqual(collisions, [], collisions.join(' · '));
+});
+
+test('l’index inverse bySlug pointe vers la bonne espèce', function () {
+  var table = chargerFormes();
+  Object.keys(table.species).forEach(function (espece) {
+    table.species[espece].forEach(function (forme) {
+      assert.strictEqual(table.bySlug[forme.s], espece,
+        forme.s + ' devrait appartenir à ' + espece);
+    });
+  });
+});
+
+test('une espèce répertoriée compte toujours au moins deux formes', function () {
+  var table = chargerFormes();
+  Object.keys(table.species).forEach(function (espece) {
+    assert.ok(table.species[espece].length >= 2,
+      espece + ' n’a qu’une forme : il n’y a alors aucun choix à proposer');
+  });
+});
+
+test('les trois Lougaroc ont bien des statistiques distinctes', function () {
+  chargerFormes();
+  var gen9 = chargerGeneration(9);
+
+  var diurne = gen9.species['lycanroc'];
+  var nocturne = gen9.species['lycanroc-midnight'];
+  var crepusculaire = gen9.species['lycanroc-dusk'];
+
+  /* [PV, Att, Déf, AttSpé, DéfSpé, Vit] */
+  assert.strictEqual(diurne.s[5], 112, 'Lougaroc Diurne : 112 de Vitesse');
+  assert.strictEqual(nocturne.s[5], 82, 'Lougaroc Nocturne : 82 de Vitesse');
+  assert.strictEqual(crepusculaire.s[1], 117, 'Lougaroc Crépusculaire : 117 d’Attaque');
+
+  /* C'est tout l'intérêt du sélecteur : ces trois-là ne se valent pas. */
+  assert.notStrictEqual(diurne.s[5], nocturne.s[5]);
+  assert.notStrictEqual(diurne.s[1], crepusculaire.s[1]);
+});
+
+test('une forme se résout depuis son libellé saisi', function () {
+  chargerFormes();
+  var names = globalThis.PokeStats.names;
+  var forms = globalThis.PokeStats.forms;
+  names.init({ buildFullIndex: false });
+
+  assert.strictEqual(names.toCandidateSlug('Lougaroc Forme Crépusculaire').slug, 'lycanroc-dusk');
+  assert.strictEqual(names.toCandidateSlug('Lougaroc Forme Nocturne').slug, 'lycanroc-midnight');
+  /* La casse, les accents et les parenthèses ne doivent pas gêner : c'est
+   * exactement ce que le sélecteur réécrit dans le champ. */
+  assert.strictEqual(names.toCandidateSlug('lougaroc (forme crepusculaire)').slug, 'lycanroc-dusk');
+
+  /* Aller-retour : ce que l'interface écrit doit se relire. */
+  ['lycanroc-dusk', 'lycanroc-midnight', 'tauros-paldea-aqua-breed'].forEach(function (slug) {
+    assert.strictEqual(names.toCandidateSlug(forms.displayName(slug)).slug, slug,
+      'aller-retour cassé pour ' + slug);
+  });
+});
+
+test('les formes de combat ne sont jamais proposées au choix', function () {
+  var table = chargerFormes();
+  /* Superdofin ne devient Forme Super qu'une fois le combat engagé, Exagide
+   * Forme Assaut de même : on ne peut pas « avoir » ces formes-là. */
+  var interdites = ['palafin-hero', 'aegislash-blade', 'darmanitan-zen',
+                    'terapagos-terastal', 'eiscue-noice', 'zacian-crowned'];
+  interdites.forEach(function (slug) {
+    assert.ok(!table.bySlug[slug], slug + ' ne devrait pas être proposable');
+  });
+});
+
+test('aucune forme de transformation ne subsiste hors de sa génération', function () {
+  var motif = /-(mega|gmax|totem|primal|eternamax|starter)(-|$)/;
+  var disponibles = {
+    mega: [6, 7], primal: [6, 7], gmax: [8], totem: [7], starter: [7], eternamax: []
+  };
+
+  [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (generation) {
+    var data = chargerGeneration(generation);
+    Object.keys(data.species).forEach(function (slug) {
+      var m = motif.exec(slug);
+      if (!m) return;
+      assert.ok(disponibles[m[1]].indexOf(generation) !== -1,
+        slug + ' ne devrait pas exister en génération ' + generation);
+    });
+  });
+});
+
 /* ------------------------------------------------------------------ */
 
 console.log('\n' + '-'.repeat(60));

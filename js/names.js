@@ -62,6 +62,47 @@
     if (indexSource === 'aucun') indexSource = 'secours embarqué';
   }
 
+  /* slug d'espèce → nom français, déduit de l'index de secours. */
+  var frBySlug = null;
+  function frOf(slug) {
+    if (!frBySlug) {
+      frBySlug = Object.create(null);
+      var seed = (root.POKESTATS_NAMES_FR && root.POKESTATS_NAMES_FR.seed) || {};
+      Object.keys(seed).forEach(function (label) {
+        if (!(seed[label] in frBySlug)) frBySlug[seed[label]] = label;
+      });
+    }
+    return frBySlug[slug] || null;
+  }
+
+  /**
+   * Rend les formes saisissables : « Lougaroc Forme Crépusculaire » doit
+   * mener à `lycanroc-dusk`, pas au Lougaroc Diurne par défaut.
+   *
+   * Le libellé enregistré porte déjà le nom de l'espèce quand PokéAPI le lui
+   * donne (« Tauros de Paldéa Race Combative ») : le préfixer une seconde fois
+   * produirait « Tauros Tauros de Paldéa… », introuvable à la saisie.
+   */
+  function loadForms() {
+    var table = root.POKESTATS_FORMS;
+    if (!table || !table.species) return;
+    Object.keys(table.species).forEach(function (species) {
+      var fr = frOf(species);
+      if (!fr) return;
+      table.species[species].forEach(function (form) {
+        addEntry(formLabel(fr, form.l), form.s);
+      });
+    });
+  }
+
+  /** Libellé affichable d'une forme : « Lougaroc Forme Crépusculaire ». */
+  function formLabel(frSpecies, label) {
+    if (!label) return frSpecies;
+    return normalize(label).indexOf(normalize(frSpecies)) === 0
+      ? label
+      : frSpecies + ' ' + label;
+  }
+
   function loadCachedIndex() {
     try {
       var raw = root.localStorage && root.localStorage.getItem(INDEX_STORAGE_KEY);
@@ -120,6 +161,7 @@
    */
   function init(options) {
     loadSeed();
+    loadForms();
     var hadCache = loadCachedIndex();
     var eager = !options || options.buildFullIndex !== false;
     if (!eager) return Promise.resolve({ ok: hadCache, count: labels.length, source: indexSource });
@@ -204,6 +246,8 @@
     init: init,
     buildFullIndex: buildFullIndex,
     normalize: normalize,
+    frOf: frOf,
+    formLabel: formLabel,
     toCandidateSlug: toCandidateSlug,
     suggest: suggest,
     didYouMean: didYouMean,
