@@ -20,6 +20,7 @@ actuels, et si son évolution justifie de l'entraîner.
 - [Faut-il apprendre cette attaque ?](#faut-il-apprendre-cette-attaque-)
 - [Mettre à jour les données](#mettre-à-jour-les-données)
 - [Vérifier les données toi-même](#vérifier-les-données-toi-même)
+- [Ce que le navigateur conserve](#ce-que-le-navigateur-conserve)
 - [Tests](#tests)
 - [Structure du projet](#structure-du-projet)
 - [Limites connues](#limites-connues)
@@ -678,7 +679,7 @@ test vérifie qu'ils sont présents et commencent par `vérifié`.
 npm test
 ```
 
-92 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
+97 tests, sans réseau, portant en priorité sur les **garanties de sûreté** —
 c'est-à-dire tout ce que l'outil promet de ne jamais faire :
 
 - un Pokémon non pleinement évolué n'est jamais proposé en remplacement ;
@@ -735,6 +736,12 @@ est bien enregistré à côté de la saisie, une équipe créée par une version
 antérieure se recharge sans identifiant inventé, et changer de forme conserve
 les attaques quand changer de Pokémon les efface.
 
+Une dernière protège le **stockage**, où le cache avait fini par manger les
+données du joueur : une équipe s'enregistre même quand le stockage est saturé,
+une fiche PokéAPI est allégée avant d'être écrite sans perdre ce que
+l'application lit, les fiches des versions antérieures sont purgées au
+démarrage, et vider le cache ne touche ni aux équipes ni à l'index des noms.
+
 S'y ajoutent le cas d'usage du cahier des charges (Rocabot → Lougaroc), les cas
 positifs (l'outil doit aussi savoir dire oui), la détection des rôles, la table
 des types et l'intégrité des données embarquées.
@@ -787,6 +794,41 @@ test/
 Le découpage suit une règle stricte : **`analysis.js` ne touche jamais au DOM et
 ne fait jamais d'appel réseau**. C'est ce qui permet de tester intégralement la
 logique de décision en Node, sans navigateur.
+
+---
+
+## Ce que le navigateur conserve
+
+Trois choses seulement, et elles ne jouent pas dans la même cour.
+
+| Clé | Contenu | Statut |
+| --- | --- | --- |
+| `pokestats:v2:teams` | Tes équipes : Pokémon, formes, attaques | **Données saisies à la main** |
+| `pokestats:v1:names-fr-index` | Index des noms français | Reconstructible |
+| `pokestats:v1:cache:…` | Réponses PokéAPI | Jetable |
+
+`localStorage` est un espace **commun** d'environ 5 Mo. Une fiche PokéAPI y
+pesait 200 à 280 Ko — elle embarque la liste complète des capacités du Pokémon
+et quinze jeux de sprites — et vingt-cinq Pokémon consultés suffisaient à le
+saturer. À partir de là, *toute* écriture échouait, y compris celle de
+l'équipe : le joueur perdait ses attaques et la forme de ses Pokémon à chaque
+changement de page, sans le moindre message.
+
+Trois règles évitent désormais ce piège :
+
+1. **Les fiches sont allégées avant d'être mises en cache.** Seuls les champs
+   que l'application lit vraiment sont conservés — les URL de chaque capacité,
+   les méthodes d'apprentissage et les quatorze jeux de sprites inutilisés
+   partent à la poubelle. En pratique : 200 Ko deviennent moins de 20 Ko, et
+   ce qui reste suffit à afficher un Pokémon hors ligne.
+2. **Une équipe passe toujours avant le cache.** Si la place manque au moment
+   d'enregistrer, le cache est purgé et l'écriture retentée. Une équipe se
+   saisit à la main ; une fiche PokéAPI se retélécharge.
+3. **Un échec est dit, pas avalé.** Si l'enregistrement échoue quand même
+   (navigation privée, stockage refusé), un bandeau prévient que l'équipe sera
+   perdue au rechargement.
+
+Vider le cache — bouton en bas de page — ne touche jamais aux équipes.
 
 ---
 

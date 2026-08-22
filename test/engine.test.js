@@ -1675,6 +1675,204 @@ test('changer de forme conserve les attaques, changer de Pokémon les efface', f
     'les attaques de l’ancien occupant ne doivent pas être attribuées au nouveau');
 });
 
+/* ================================================================== */
+section('12. Stockage — le cache ne mange jamais les données du joueur');
+/* ================================================================== */
+
+/*
+ * POURQUOI CES TESTS
+ * ------------------
+ * localStorage est un espace COMMUN d'environ 5 Mo. Une fiche PokéAPI pèse
+ * 200 à 280 Ko : elle embarque la liste complète des capacités du Pokémon et
+ * quinze jeux de sprites. Vingt-cinq Pokémon consultés suffisaient à saturer
+ * l'espace — et à partir de là, TOUTE écriture échouait, y compris celle de
+ * l'équipe. Le joueur perdait ses attaques et la forme de ses Pokémon à chaque
+ * changement de page, sans le moindre message.
+ *
+ * Une équipe se saisit à la main, une fiche PokéAPI se retélécharge. La règle
+ * est donc simple : en cas de manque de place, c'est le cache qui saute.
+ */
+
+/** localStorage de substitution, avec un vrai plafond d'octets. */
+function stockageBorne(plafond) {
+  var data = Object.create(null);
+  var api = {
+    get length() { return Object.keys(data).length; },
+    key: function (i) { return Object.keys(data)[i] || null; },
+    getItem: function (k) { return k in data ? data[k] : null; },
+    removeItem: function (k) { delete data[k]; },
+    setItem: function (k, v) {
+      var total = 0;
+      Object.keys(data).forEach(function (x) { if (x !== k) total += x.length + data[x].length; });
+      if (total + k.length + String(v).length > plafond) {
+        var err = new Error('quota');
+        err.name = 'QuotaExceededError';
+        throw err;
+      }
+      data[k] = String(v);
+    },
+    octets: function () {
+      var n = 0;
+      Object.keys(data).forEach(function (k) { n += k.length + data[k].length; });
+      return n;
+    },
+    cles: function () { return Object.keys(data); }
+  };
+  return api;
+}
+
+function chargerStockage(plafond) {
+  globalThis.localStorage = stockageBorne(plafond);
+  [['js', 'api.js'], ['js', 'teams.js']].forEach(function (parts) {
+    delete require.cache[require.resolve(path.join.apply(null, [__dirname, '..'].concat(parts)))];
+  });
+  require(path.join(__dirname, '..', 'js', 'api.js'));
+  require(path.join(__dirname, '..', 'js', 'teams.js'));
+  return {
+    api: globalThis.PokeStats.api,
+    teams: globalThis.PokeStats.teams,
+    store: globalThis.localStorage
+  };
+}
+
+test('une équipe s’enregistre même quand le cache a rempli le stockage', function () {
+  var ctx = chargerStockage(200 * 1024);
+
+  /* On sature avec du cache, comme le faisait une visite du Pokédex. */
+  for (var i = 0; i < 40; i++) {
+    try {
+      ctx.store.setItem('pokestats:v1:cache:https://pokeapi.co/api/v2/pokemon/' + i,
+        new Array(20 * 1024).join('x'));
+    } catch (e) { break; }
+  }
+  assert.ok(ctx.store.octets() > 150 * 1024, 'le stockage doit bien être saturé');
+
+  ctx.teams.init('scarlet-violet');
+  ctx.teams.setSlot(0, 'Lougaroc Forme Crépusculaire', 'lycanroc-dusk');
+  ctx.teams.setMoves(0, ['stone-edge', 'crunch', 'play-rough', 'psychic-fangs']);
+
+  assert.ok(ctx.teams.isPersisted(),
+    'l’équipe doit être enregistrée : c’est le cache qui doit sauter, pas elle');
+
+  var relu = JSON.parse(ctx.store.getItem('pokestats:v2:teams'));
+  assert.strictEqual(relu.teams[0].slugs[0], 'lycanroc-dusk');
+  assert.strictEqual(relu.teams[0].movesets[0].length, 4);
+});
+
+test('une fiche PokéAPI est allégée avant d’être mise en cache', function () {
+  var ctx = chargerStockage(5 * 1024 * 1024);
+
+  /* Réponse réaliste : c'est la liste des capacités et les sprites qui pèsent,
+   * pas les statistiques. Chaque entrée de capacité porte des URL et le détail
+   * d'apprentissage pour chaque version — que l'application ne lit jamais. */
+  var capacites = [];
+  for (var i = 0; i < 300; i++) {
+    capacites.push({
+      move: { name: 'capacite-' + i, url: 'https://pokeapi.co/api/v2/move/' + i + '/' },
+      version_group_details: [{
+        level_learned_at: 12,
+        move_learn_method: { name: 'level-up', url: 'https://pokeapi.co/api/v2/move-learn-method/1/' },
+        version_group: { name: 'scarlet-violet', url: 'https://pokeapi.co/api/v2/version-group/25/' }
+      }]
+    });
+  }
+  var sprites = {
+    front_default: 'a.png',
+    other: { 'official-artwork': { front_default: 'b.png' }, home: { front_default: 'c.png' } }
+  };
+  for (var j = 0; j < 60; j++) sprites['variante_' + j] = new Array(1200).join('z');
+
+  var fiche = {
+    id: 445, name: 'garchomp', species: { name: 'garchomp' },
+    stats: [{ base_stat: 108, stat: { name: 'hp' }, effort: 0 }],
+    types: [{ slot: 1, type: { name: 'dragon' } }],
+    abilities: [{ is_hidden: false, slot: 1, ability: { name: 'sand-veil' } }],
+    sprites: sprites, moves: capacites
+  };
+
+  var pleine = JSON.stringify(fiche).length;
+  assert.ok(pleine > 100 * 1024,
+    'prémisse du test : la fiche doit être volumineuse (' + pleine + ' octets)');
+
+  var allegee = ctx.api._compactPokemon(fiche);
+  var taille = JSON.stringify(allegee).length;
+
+  assert.ok(taille < pleine / 4,
+    'la copie en cache doit être bien plus légère : ' + taille + ' contre ' + pleine);
+  assert.ok(taille < ctx.api.MAX_ENTRY_BYTES,
+    'elle doit passer sous le plafond d’écriture (' + taille + ' octets)');
+
+  /* …sans rien perdre de ce que l'application lit réellement. */
+  assert.strictEqual(allegee.id, 445);
+  assert.strictEqual(allegee.species.name, 'garchomp');
+  assert.strictEqual(allegee.stats[0].base_stat, 108);
+  assert.strictEqual(allegee.stats[0].stat.name, 'hp');
+  assert.strictEqual(allegee.types[0].type.name, 'dragon');
+  assert.strictEqual(allegee.abilities[0].ability.name, 'sand-veil');
+  assert.strictEqual(allegee.sprites.other['official-artwork'].front_default, 'b.png');
+  assert.strictEqual(allegee.moves.length, 300,
+    'la liste des capacités apprenables sert à repérer les fautes de frappe');
+  assert.strictEqual(allegee.moves[0].move.name, 'capacite-0');
+  assert.strictEqual(allegee.moves[0].version_group_details[0].version_group.name,
+    'scarlet-violet');
+});
+
+test('une fiche d’espèce garde ses noms français et sa chaîne d’évolution', function () {
+  var ctx = chargerStockage(5 * 1024 * 1024);
+  var textes = [];
+  for (var i = 0; i < 200; i++) {
+    textes.push({ flavor_text: new Array(400).join('t'), language: { name: 'ja' } });
+  }
+  var espece = {
+    id: 445, name: 'garchomp',
+    names: [{ name: 'Carchacrok', language: { name: 'fr' } },
+            { name: 'Garchomp', language: { name: 'en' } },
+            { name: 'ガブリアス', language: { name: 'ja' } }],
+    varieties: [{ is_default: true, pokemon: { name: 'garchomp', url: 'x' } }],
+    evolution_chain: { url: 'https://pokeapi.co/api/v2/evolution-chain/232/' },
+    is_legendary: false, is_mythical: false,
+    flavor_text_entries: textes
+  };
+
+  var allegee = ctx.api._compactSpecies(espece);
+  assert.ok(JSON.stringify(allegee).length < JSON.stringify(espece).length / 10);
+  assert.strictEqual(allegee.names.length, 2, 'seuls le français et l’anglais servent');
+  assert.strictEqual(allegee.names[0].name, 'Carchacrok');
+  assert.strictEqual(allegee.varieties[0].pokemon.name, 'garchomp');
+  assert.ok(allegee.evolution_chain.url, 'la chaîne d’évolution doit rester joignable');
+});
+
+test('les fiches mises en cache par les versions antérieures sont purgées', function () {
+  globalThis.localStorage = stockageBorne(5 * 1024 * 1024);
+  var store = globalThis.localStorage;
+  /* Ancien emplacement : « pokestats:v1:https://… », que plus rien ne relit. */
+  store.setItem('pokestats:v1:https://pokeapi.co/api/v2/pokemon/6', new Array(50 * 1024).join('x'));
+  store.setItem('pokestats:v2:teams', '{"teams":[],"activeId":null}');
+  store.setItem('pokestats:v1:names-fr-index', '{"rows":[]}');
+
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'js', 'api.js'))];
+  require(path.join(__dirname, '..', 'js', 'api.js'));
+
+  assert.strictEqual(store.getItem('pokestats:v1:https://pokeapi.co/api/v2/pokemon/6'), null,
+    'les fiches de l’ancien cache doivent être supprimées au démarrage');
+  assert.ok(store.getItem('pokestats:v2:teams'), 'les équipes ne doivent jamais être touchées');
+  assert.ok(store.getItem('pokestats:v1:names-fr-index'),
+    'l’index des noms n’est pas du cache de fiches : il doit survivre');
+});
+
+test('vider le cache ne touche ni aux équipes ni à l’index des noms', function () {
+  var ctx = chargerStockage(5 * 1024 * 1024);
+  ctx.store.setItem('pokestats:v1:cache:https://pokeapi.co/api/v2/type/fire', '{"a":1}');
+  ctx.store.setItem('pokestats:v2:teams', '{"teams":[],"activeId":null}');
+  ctx.store.setItem('pokestats:v1:names-fr-index', '{"rows":[]}');
+
+  ctx.api.clearCache();
+
+  assert.strictEqual(ctx.store.getItem('pokestats:v1:cache:https://pokeapi.co/api/v2/type/fire'), null);
+  assert.ok(ctx.store.getItem('pokestats:v2:teams'));
+  assert.ok(ctx.store.getItem('pokestats:v1:names-fr-index'));
+});
+
 /* ------------------------------------------------------------------ */
 
 console.log('\n' + '-'.repeat(60));

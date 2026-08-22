@@ -101,13 +101,55 @@
     }
   }
 
+  /* Dernière écriture réussie ? Consulté par l'interface pour prévenir. */
+  var derniereEcritureOk = true;
+
+  /**
+   * Enregistre les équipes.
+   *
+   * L'échec n'est PAS anodin, contrairement à ce que cette fonction supposait :
+   * localStorage est un espace commun d'environ 5 Mo, que le cache des fiches
+   * PokéAPI saturait à lui seul. Une fois plein, l'écriture échouait — et
+   * l'utilisateur perdait ses attaques et la forme de ses Pokémon à chaque
+   * changement de page, sans le moindre message.
+   *
+   * Une équipe se saisit à la main, une fiche PokéAPI se retélécharge. En cas
+   * de manque de place, c'est donc le cache qui saute, pas le travail du
+   * joueur. Et si cela ne suffit pas, l'interface le dit.
+   *
+   * @returns {boolean} vrai si l'enregistrement a abouti
+   */
   function write() {
+    if (!root.localStorage) { derniereEcritureOk = false; return false; }
+    var payload;
     try {
-      if (root.localStorage) {
-        root.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      payload = JSON.stringify(state);
+    } catch (e) {
+      derniereEcritureOk = false;
+      return false;
+    }
+
+    try {
+      root.localStorage.setItem(STORAGE_KEY, payload);
+      derniereEcritureOk = true;
+      return true;
+    } catch (e) {
+      /* Place manquante : on sacrifie le cache, jamais les équipes. */
+      var api = PokeStats.api;
+      if (api && api.purgeCache) api.purgeCache();
+      try {
+        root.localStorage.setItem(STORAGE_KEY, payload);
+        derniereEcritureOk = true;
+        return true;
+      } catch (e2) {
+        derniereEcritureOk = false;
+        return false;
       }
-    } catch (e) { /* quota ou stockage refusé : la session reste utilisable */ }
+    }
   }
+
+  /** L'équipe est-elle réellement enregistrée ? */
+  function isPersisted() { return derniereEcritureOk; }
 
   /**
    * Récupère l'équipe unique des versions antérieures pour ne pas la perdre.
@@ -348,6 +390,7 @@
     rename: rename,
     remove: remove,
     setSlot: setSlot,
+    isPersisted: isPersisted,
     slots: slots,
     slugs: slugs,
     slugOf: slugOf,

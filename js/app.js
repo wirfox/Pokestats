@@ -89,6 +89,29 @@
     slots.forEach(function (slot, index) {
       teams.setSlot(index, slot.input, slot.slug);
     });
+    signalerStockage();
+  }
+
+  /*
+   * Une équipe qui ne s'enregistre pas doit se voir.
+   *
+   * Le stockage du navigateur peut être plein ou refusé (navigation privée,
+   * réglages stricts). Sans avertissement, l'utilisateur retrouve son équipe
+   * amputée au rechargement suivant et croit à un bug de l'application — ce
+   * qui a été exactement le cas ici, le cache des fiches PokéAPI saturant
+   * l'espace commun.
+   */
+  var stockageSignale = false;
+  function signalerStockage() {
+    if (!teams.isPersisted || teams.isPersisted()) return;
+    if (stockageSignale) return;
+    stockageSignale = true;
+    showGlobalError(
+      'Ton équipe ne peut pas être enregistrée.',
+      ' Le stockage de ce navigateur est plein ou refusé. Elle reste utilisable ' +
+      'pour cette visite, mais sera perdue au rechargement. Le bouton ' +
+      '« Vider le cache » en bas de page libère de la place.'
+    );
   }
 
   function restoreTeam() {
@@ -349,6 +372,7 @@
     bloc.querySelectorAll('.move-remove').forEach(function (btn) {
       btn.addEventListener('click', function () {
         teams.removeMove(index, btn.dataset.move);
+        signalerStockage();
         openMovesets[index] = true;
         renderSlot(index);
       });
@@ -364,6 +388,7 @@
         var slug = PokeStats.movedex.resolve(ajout.value);
         if (!slug) return;
         teams.addMove(index, slug);
+        signalerStockage();
         openMovesets[index] = true;
         renderSlot(index);
       };
@@ -412,6 +437,7 @@
           if (place !== -1) actuelles[place] = slug;
           else actuelles = actuelles.concat([slug]);
           teams.setMoves(index, actuelles);
+          signalerStockage();
           openMovesets[index] = true;
           renderSlot(index);
         });
